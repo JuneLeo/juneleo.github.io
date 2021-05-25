@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"www.juneleo.cn","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="背景从git push origin HEAD:refs&#x2F;for&#x2F;xxxxx说起，这条命令是在使用mk ak 提交review代码发现的，对HEAD和refs&#x2F;for&#x2F;xxxxx 所代表的含义充满了好奇，可能有些人能理解HEAD是.git&#x2F;HEAD，那refs&#x2F;for&#x2F;xxxxx是什么东西呢？">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Git引用规范">
+<meta property="og:url" content="http://www.juneleo.cn/2021/05/24/Git%E5%BC%95%E7%94%A8%E8%A7%84%E8%8C%83/index.html">
+<meta property="og:site_name" content="JuneLeo&#39;s Blog">
+<meta property="og:description" content="背景从git push origin HEAD:refs&#x2F;for&#x2F;xxxxx说起，这条命令是在使用mk ak 提交review代码发现的，对HEAD和refs&#x2F;for&#x2F;xxxxx 所代表的含义充满了好奇，可能有些人能理解HEAD是.git&#x2F;HEAD，那refs&#x2F;for&#x2F;xxxxx是什么东西呢？">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2021-05-24T13:33:33.000Z">
+<meta property="article:modified_time" content="2021-05-25T01:49:02.855Z">
+<meta property="article:author" content="JuneLeo">
+<meta property="article:tag" content="git">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://www.juneleo.cn/2021/05/24/Git%E5%BC%95%E7%94%A8%E8%A7%84%E8%8C%83/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>Git引用规范 | JuneLeo's Blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">JuneLeo's Blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://www.juneleo.cn/2021/05/24/Git%E5%BC%95%E7%94%A8%E8%A7%84%E8%8C%83/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="JuneLeo">
+      <meta itemprop="description" content="Alibaba">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="JuneLeo's Blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Git引用规范
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2021-05-24 21:33:33" itemprop="dateCreated datePublished" datetime="2021-05-24T21:33:33+08:00">2021-05-24</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2021-05-25 09:49:02" itemprop="dateModified" datetime="2021-05-25T09:49:02+08:00">2021-05-25</time>
+              </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h2 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h2><p>从git push origin HEAD:refs/for/xxxxx说起，这条命令是在使用mk ak 提交review代码发现的，对HEAD和refs/for/xxxxx 所代表的含义充满了好奇，可能有些人能理解HEAD是.git/HEAD，那refs/for/xxxxx是什么东西呢？</p>
+<span id="more"></span>
+
+<h2 id="常规"><a href="#常规" class="headerlink" title="常规"></a>常规</h2><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#</span><span class="bash"> fetch</span></span><br><span class="line"><span class="meta">&gt;</span><span class="bash">  git fetch</span></span><br><span class="line"><span class="meta"></span></span><br><span class="line"><span class="meta">#</span><span class="bash"> 源端分支映射</span></span><br><span class="line"><span class="meta">&gt;</span><span class="bash">  git branch -a</span></span><br><span class="line">* master</span><br><span class="line">  remotes/origin/HEAD -&gt; origin/master</span><br><span class="line">  remotes/origin/develop</span><br><span class="line">  remotes/origin/master</span><br><span class="line"><span class="meta"></span></span><br><span class="line"><span class="meta">#</span><span class="bash"> 切一个本地分支mydevelop，源端分支为 develop</span>  </span><br><span class="line"><span class="meta">&gt;</span><span class="bash">  git checkout -b mydevelop refs/remotes/origin/develop</span></span><br><span class="line"><span class="meta"></span></span><br><span class="line"><span class="meta">#</span><span class="bash"> 查看config文件</span>  </span><br><span class="line"><span class="meta">&gt;</span><span class="bash">  cat .git/config</span>  </span><br><span class="line">...</span><br><span class="line">[remote &quot;origin&quot;] 本地源 名称</span><br><span class="line">	url = git@github.com:JuneLeo/CardControl.git</span><br><span class="line">	fetch = +refs/heads/*:refs/remotes/origin/*</span><br><span class="line">[branch &quot;master&quot;] </span><br><span class="line">	remote = origin</span><br><span class="line">	merge = refs/heads/master</span><br><span class="line">[branch &quot;mydevelop&quot;]</span><br><span class="line">	remote = origin    </span><br><span class="line">	merge = refs/heads/develop</span><br></pre></td></tr></table></figure>
+<p>通过config文件和 refs目录，我们发现</p>
+<ul>
+<li><p>config 为git配置文件， [remote “origin”] :对应.git/refs/remotes/origin</p>
+</li>
+<li><p>refs/heads 为本地分支，.git/refs/remote/origin为源端分支</p>
+</li>
+<li><p>fetch = +refs/heads/<em>:refs/remotes/origin/</em> ，+ 号告诉 Git 即使在不能快进的情况下也要（强制）更新引用</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#</span><span class="bash"> 查看 refs源端映射的本地引用目录</span></span><br><span class="line"><span class="meta">&gt;</span><span class="bash">  ls .git/refs</span>   </span><br><span class="line">heads   remotes tags</span><br><span class="line"><span class="meta"></span></span><br><span class="line"><span class="meta">&gt;</span><span class="bash">  ls .git/refs/heads  // heads 为本地分支</span></span><br><span class="line">master    mydevelop</span><br><span class="line"><span class="meta"></span></span><br><span class="line"><span class="meta">&gt;</span><span class="bash">  ls .git/refs/remotes //源端 heads目录映射（refs/heads/*:refs/remotes/origin/* ）</span></span><br><span class="line">origin</span><br><span class="line"><span class="meta"></span></span><br><span class="line"><span class="meta">&gt;</span><span class="bash">  ls .git/refs/remotes/origin // 参考后面pack-refs</span></span><br><span class="line">HEAD</span><br></pre></td></tr></table></figure>
+<p>上述我们查看了.git/refs 目录，</p>
+</li>
+<li><p>heads 为本地分支目录</p>
+</li>
+<li><p>remotes 为源端映射目录</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#</span><span class="bash"> 查看 HEAD 本地的当前分支</span></span><br><span class="line"><span class="meta">&gt;</span><span class="bash">  cat .git/HEAD</span></span><br><span class="line">ref: refs/heads/mydevelop //当前分支为mydevelop</span><br><span class="line"><span class="meta"></span></span><br><span class="line"><span class="meta">#</span><span class="bash"> 查看 packed-refs</span></span><br><span class="line"><span class="meta">&gt;</span><span class="bash">  cat .git/packed-refs</span></span><br><span class="line"><span class="meta">#</span><span class="bash"> pack-refs with: peeled fully-peeled sorted</span></span><br><span class="line">5aca94c89c5d873acd0169a2c98910d00986fa45 refs/remotes/origin/develop</span><br><span class="line">720c57484f53f66ce310a3f303cffe6d0af954c1 refs/remotes/origin/master</span><br></pre></td></tr></table></figure>
+<p>其他一些目录信息</p>
+</li>
+<li><p>HEAD 保存着当前分支</p>
+</li>
+<li><p>packed-refs  （后面讲解）</p>
+</li>
+</ul>
+<p>我们继续看 git push origin HEAD:refs/for/xxxxx</p>
+<ul>
+<li>origin: 本地源端目录映射.git/refs/remote/origin</li>
+<li>HEAD: 本地当前分支 .git/HEAD</li>
+<li>refs/for/xxxxx   源端 for/xxxxx 目录（或者标签）</li>
+</ul>
+<p>这条命令会将HEAD提交到源端的for/xxxxx目录（或者标签）下<br>​</p>
+<h2 id="变形"><a href="#变形" class="headerlink" title="变形"></a>变形</h2><p>为了排除干扰 ，我们把项目删除，重新克隆，并且重新添加remote</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">&gt;</span><span class="bash">  git remote add other git@github.com:JuneLeo/CardControl.git</span></span><br><span class="line"><span class="meta"></span></span><br><span class="line"><span class="meta">&gt;</span><span class="bash">  cat .git/config</span></span><br><span class="line">...</span><br><span class="line">[remote &quot;origin&quot;]</span><br><span class="line">	url = git@github.com:JuneLeo/CardControl.git</span><br><span class="line">	fetch = +refs/heads/*:refs/remotes/origin/*</span><br><span class="line">[remote &quot;other&quot;]</span><br><span class="line">	url = git@github.com:JuneLeo/CardControl.git</span><br><span class="line">	fetch = +refs/*:refs/remotes/other/*</span><br><span class="line">...  </span><br><span class="line"><span class="meta">  </span></span><br><span class="line"><span class="meta">#</span><span class="bash"> 修改 other</span></span><br><span class="line"></span><br><span class="line">[remote &quot;other&quot;]</span><br><span class="line">	url = git@github.com:JuneLeo/CardControl.git</span><br><span class="line">	fetch = +refs/*:refs/remotes/other/*</span><br><span class="line"><span class="meta"></span></span><br><span class="line"><span class="meta">&gt;</span><span class="bash">  git fetch other</span></span><br><span class="line">remote: Enumerating objects: 216, done.</span><br><span class="line">remote: Counting objects: 100% (184/184), done.</span><br><span class="line">remote: Compressing objects: 100% (56/56), done.</span><br><span class="line">remote: Total 158 (delta 57), reused 150 (delta 50), pack-reused 0</span><br><span class="line">Receiving objects: 100% (158/158), 13.56 KiB | 4.52 MiB/s, done.</span><br><span class="line">Resolving deltas: 100% (57/57), completed with 9 local objects.</span><br><span class="line">From github.com:JuneLeo/CardControl</span><br><span class="line"> * [new ref]         refs/for/develop   -&gt; other/for/develop</span><br><span class="line"> * [new branch]      develop            -&gt; other/heads/develop</span><br><span class="line"> * [new branch]      master             -&gt; other/heads/master</span><br><span class="line"> * [new ref]         refs/pull/1/head   -&gt; other/pull/1/head</span><br><span class="line"> * [new ref]         refs/pull/10/head  -&gt; other/pull/10/head</span><br><span class="line"> * [new ref]         refs/pull/11/head  -&gt; other/pull/11/head</span><br><span class="line"> * [new ref]         refs/pull/11/merge -&gt; other/pull/11/merge</span><br><span class="line"> * [new ref]         refs/pull/2/head   -&gt; other/pull/2/head</span><br><span class="line"> * [new ref]         refs/pull/3/head   -&gt; other/pull/3/head</span><br><span class="line"> * [new ref]         refs/pull/4/head   -&gt; other/pull/4/head</span><br><span class="line"> * [new ref]         refs/pull/5/head   -&gt; other/pull/5/head</span><br><span class="line"> * [new ref]         refs/pull/6/head   -&gt; other/pull/6/head</span><br><span class="line"> * [new ref]         refs/pull/7/head   -&gt; other/pull/7/head</span><br><span class="line"> * [new ref]         refs/pull/8/head   -&gt; other/pull/8/head</span><br><span class="line"> * [new ref]         refs/pull/9/head   -&gt; other/pull/9/head</span><br><span class="line"> * [new ref]         refs/song/develop  -&gt; other/song/develop</span><br><span class="line"><span class="meta"> </span></span><br><span class="line"><span class="meta"></span></span><br><span class="line"><span class="meta">&gt;</span><span class="bash">  git branch -a</span></span><br><span class="line">* master</span><br><span class="line">  remotes/origin/HEAD -&gt; origin/master  //本地存在</span><br><span class="line">  remotes/origin/develop    // 本地仓库不存在</span><br><span class="line">  remotes/origin/master     // 本地仓库不存在</span><br><span class="line">  remotes/other/for/develop // review标签</span><br><span class="line">  remotes/other/heads/develop</span><br><span class="line">  remotes/other/heads/master</span><br><span class="line">  remotes/other/pull/1/head</span><br><span class="line">  remotes/other/pull/10/head</span><br><span class="line">  remotes/other/pull/11/head</span><br><span class="line">  remotes/other/pull/11/merge</span><br><span class="line">  remotes/other/pull/2/head</span><br><span class="line">  remotes/other/pull/3/head</span><br><span class="line">  remotes/other/pull/4/head</span><br><span class="line">  remotes/other/pull/5/head</span><br><span class="line">  remotes/other/pull/6/head</span><br><span class="line">  remotes/other/pull/7/head</span><br><span class="line">  remotes/other/pull/8/head</span><br><span class="line">  remotes/other/pull/9/head</span><br><span class="line">  remotes/other/song/develop</span><br></pre></td></tr></table></figure>
+<p>通过上面的命令，我们发现把+refs/heads/<em>:refs/remotes/other/</em> 改为+refs/*:refs/remotes/other/*，会将源端refs目录下的所有文件映射到本地refs/remote/other 目录</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">&gt;</span><span class="bash">  ls .git/refs/remotes</span></span><br><span class="line">origin other</span><br><span class="line"><span class="meta"></span></span><br><span class="line"><span class="meta">&gt;</span><span class="bash">  ls .git/refs/remotes/other //此处为源other 映射目录</span></span><br><span class="line">for   heads pull  song</span><br><span class="line"><span class="meta"></span></span><br><span class="line"><span class="meta">&gt;</span><span class="bash">  ls .git/refs/remotes/other/heads //other/heads目录</span></span><br><span class="line">develop master</span><br><span class="line"><span class="meta"></span></span><br><span class="line"><span class="meta">&gt;</span><span class="bash">  ls .git/refs/remotes/origin  //     origin 等同 other/heads</span></span><br><span class="line">HEAD</span><br><span class="line"><span class="meta"></span></span><br><span class="line"><span class="meta">&gt;</span><span class="bash">  cat .git/refs/remotes/origin/HEAD</span></span><br><span class="line">ref: refs/remotes/origin/master</span><br></pre></td></tr></table></figure>
+<p>通过比较发现 origin目录下只有HEAD文件，且HEAD中存储了源端映射信息;我们再次分析</p>
+<ul>
+<li>+refs/<em>:refs/remotes/other/</em> ，将 源端refs 映射到refs/remotes/other目录</li>
+<li>+refs/heads/<em>:refs/remotes/origin/</em>  将源端refs/heads 映射到refs/remotes/origin目录</li>
+</ul>
+<p>为什么.git/refs/remotes/origin只有一个HEAD目录？而不是develop和master文件？？？</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">&gt;</span><span class="bash">  git remote add juneleo git@github.com:JuneLeo/CardControl.git</span></span><br><span class="line"><span class="meta"></span></span><br><span class="line"><span class="meta">&gt;</span><span class="bash">  cat .git/config</span></span><br><span class="line">...</span><br><span class="line">[remote &quot;juneleo&quot;]</span><br><span class="line">	url = git@github.com:JuneLeo/CardControl.git</span><br><span class="line">	fetch = +refs/heads/*:refs/remotes/juneleo/*</span><br><span class="line"><span class="meta"></span></span><br><span class="line"><span class="meta">&gt;</span><span class="bash">  ls .git/refs/remotes/juneleo</span></span><br><span class="line">develop master</span><br></pre></td></tr></table></figure>
+<p>通过添加新的源juneleo，我们发现refs/remotes/juneleo目录下有develop和master文件,那这又是为什么呢？<br>​</p>
+<h2 id="打包标头和标签以便高效的存储库访问"><a href="#打包标头和标签以便高效的存储库访问" class="headerlink" title="打包标头和标签以便高效的存储库访问"></a>打包标头和标签以便高效的存储库访问</h2><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">&gt;</span><span class="bash">  cat .git/packed-refs</span></span><br><span class="line"><span class="meta">#</span><span class="bash"> pack-refs with: peeled fully-peeled sorted</span></span><br><span class="line">5aca94c89c5d873acd0169a2c98910d00986fa45 refs/remotes/origin/develop</span><br><span class="line">720c57484f53f66ce310a3f303cffe6d0af954c1 refs/remotes/origin/master</span><br><span class="line"><span class="meta"></span></span><br><span class="line"><span class="meta">&gt;</span><span class="bash">  git pack-refs --all</span></span><br><span class="line"><span class="meta"></span></span><br><span class="line"><span class="meta">&gt;</span><span class="bash">  ls .git/refs/remotes</span></span><br><span class="line">origin</span><br></pre></td></tr></table></figure>
+<p>执行 git pack-refs –all，我们发现 refs/remotes目录中的other和juneleo目录消失了，这又是为什么呢？？</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">&gt;</span><span class="bash">  cat .git/packed-refs</span></span><br><span class="line"><span class="meta">#</span><span class="bash"> pack-refs with: peeled fully-peeled sorted</span></span><br><span class="line">5aca94c89c5d873acd0169a2c98910d00986fa45 refs/heads/develop_origin</span><br><span class="line">720c57484f53f66ce310a3f303cffe6d0af954c1 refs/heads/master</span><br><span class="line">720c57484f53f66ce310a3f303cffe6d0af954c1 refs/heads/master_other</span><br><span class="line">5aca94c89c5d873acd0169a2c98910d00986fa45 refs/remotes/juneleo/develop</span><br><span class="line">720c57484f53f66ce310a3f303cffe6d0af954c1 refs/remotes/juneleo/master</span><br><span class="line">5aca94c89c5d873acd0169a2c98910d00986fa45 refs/remotes/origin/develop</span><br><span class="line">720c57484f53f66ce310a3f303cffe6d0af954c1 refs/remotes/origin/master</span><br><span class="line">073b759c5f2b2054086010a5259be14c9c85a6bf refs/remotes/other/for/develop</span><br><span class="line">5aca94c89c5d873acd0169a2c98910d00986fa45 refs/remotes/other/heads/develop</span><br><span class="line">720c57484f53f66ce310a3f303cffe6d0af954c1 refs/remotes/other/heads/master</span><br><span class="line">effecabb3c199b271deb2f00a7d0dc9846a9317c refs/remotes/other/pull/1/head</span><br><span class="line">7bc68c59ba42beeffce0521c32eb017bf22c9e1b refs/remotes/other/pull/10/head</span><br><span class="line">5aca94c89c5d873acd0169a2c98910d00986fa45 refs/remotes/other/pull/11/head</span><br><span class="line">f73286b0a6beca997c40ac7472ae7ce28067b3f1 refs/remotes/other/pull/11/merge</span><br><span class="line">68faf293665a0431cd88dfd00df1ed013281595b refs/remotes/other/pull/2/head</span><br><span class="line">d34af6f4d72385d06aa32a8d8ed23f2ae8847ad6 refs/remotes/other/pull/3/head</span><br><span class="line">f70a3be25c18a267ec404c2325fdb4bf803e42dc refs/remotes/other/pull/4/head</span><br><span class="line">d34af6f4d72385d06aa32a8d8ed23f2ae8847ad6 refs/remotes/other/pull/5/head</span><br><span class="line">6be27fa9215b3576c20f32a25ee740b91cc338bf refs/remotes/other/pull/6/head</span><br><span class="line">fa82c7d436b599b359c756be00e23181c32c7a7a refs/remotes/other/pull/7/head</span><br><span class="line">b394a520bd70fd042378fc2bc2ec81c75cb84622 refs/remotes/other/pull/8/head</span><br><span class="line">c1d0d352abb347eea4af9bfec999eba5a72305ba refs/remotes/other/pull/9/head</span><br><span class="line">073b759c5f2b2054086010a5259be14c9c85a6bf refs/remotes/other/song/develop</span><br></pre></td></tr></table></figure>
+<p>再次打开.git/packed-refs目录，我们发现这个文件里面多了很多映射关系<br>​</p>
+<p>传统上，分支存储在refs 目录中，尽管许多分支提示往往会经常更新，但是大多数标记和某些分支提示从未更新过。当存储库中有成百上千个标签时，这种“每个引用一个文件”的格式既浪费存储空间，又会损害性能。<br>​</p>
+<p>git pack-refs 用于通过将引用存储在单个文件中来解决存储和性能问题 .git/packed-refs。当传统.git/refs目录层次结构中缺少ref时，将在此文件中查找该引用，并在找到该引用时使用。<br>​</p>
+<p>分支更新总是.git/refs目录层次结构下创建新文件 。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">git pack-refs</span><br><span class="line"></span><br><span class="line">--all       -- pack all refs</span><br><span class="line">--no-all    -- do not pack all refs</span><br><span class="line">--no-prune  -- do not remove loose refs after packing them</span><br><span class="line">--prune     -- remove loose refs after packing them</span><br></pre></td></tr></table></figure>
+<p>​</p>
+<p>​</p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/git/" rel="tag"># git</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2021/05/23/PNG%E5%8C%BA%E5%88%AB/" rel="prev" title="PNG和NinePNG区别">
+      <i class="fa fa-chevron-left"></i> PNG和NinePNG区别
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2021/05/24/Git%E5%86%85%E9%83%A8%E5%8E%9F%E7%90%86/" rel="next" title="Git内部原理">
+      Git内部原理 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%83%8C%E6%99%AF"><span class="nav-number">1.</span> <span class="nav-text">背景</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%B8%B8%E8%A7%84"><span class="nav-number">2.</span> <span class="nav-text">常规</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8F%98%E5%BD%A2"><span class="nav-number">3.</span> <span class="nav-text">变形</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%89%93%E5%8C%85%E6%A0%87%E5%A4%B4%E5%92%8C%E6%A0%87%E7%AD%BE%E4%BB%A5%E4%BE%BF%E9%AB%98%E6%95%88%E7%9A%84%E5%AD%98%E5%82%A8%E5%BA%93%E8%AE%BF%E9%97%AE"><span class="nav-number">4.</span> <span class="nav-text">打包标头和标签以便高效的存储库访问</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">JuneLeo</p>
+  <div class="site-description" itemprop="description">Alibaba</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">10</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+        <span class="site-state-item-count">4</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/JuneLeo" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;JuneLeo" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="/june.leo.me@gmail.com" title="E-Mail → june.leo.me@gmail.com"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">JuneLeo</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/pjax/pjax.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+  <script>
+var pjax = new Pjax({
+  selectors: [
+    'head title',
+    '#page-configurations',
+    '.content-wrap',
+    '.post-toc-wrap',
+    '.languages',
+    '#pjax'
+  ],
+  switches: {
+    '.post-toc-wrap': Pjax.switches.innerHTML
+  },
+  analytics: false,
+  cacheBust: false,
+  scrollTo : !CONFIG.bookmark.enable
+});
+
+window.addEventListener('pjax:success', () => {
+  document.querySelectorAll('script[data-pjax], script#page-configurations, #pjax script').forEach(element => {
+    var code = element.text || element.textContent || element.innerHTML || '';
+    var parent = element.parentNode;
+    parent.removeChild(element);
+    var script = document.createElement('script');
+    if (element.id) {
+      script.id = element.id;
+    }
+    if (element.className) {
+      script.className = element.className;
+    }
+    if (element.type) {
+      script.type = element.type;
+    }
+    if (element.src) {
+      script.src = element.src;
+      // Force synchronous loading of peripheral JS.
+      script.async = false;
+    }
+    if (element.dataset.pjax !== undefined) {
+      script.dataset.pjax = '';
+    }
+    if (code !== '') {
+      script.appendChild(document.createTextNode(code));
+    }
+    parent.appendChild(script);
+  });
+  NexT.boot.refresh();
+  // Define Motion Sequence & Bootstrap Motion.
+  if (CONFIG.motion.enable) {
+    NexT.motion.integrator
+      .init()
+      .add(NexT.motion.middleWares.subMenu)
+      .add(NexT.motion.middleWares.postList)
+      .bootstrap();
+  }
+  NexT.utils.updateSidebarPosition();
+});
+</script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <div id="pjax">
+  
+
+  
+
+    </div>
+</body>
+</html>
