@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"www.juneleo.cn","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="参考 AbstractDependencyReportTask   dependencies任务 AppClasspathCheckTask      checkDebugClassPath任务 ApplicationTaskManager VariantScopeImpl  computeArtifactCollection 收集Artifact">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Gradle输出aar包大小">
+<meta property="og:url" content="http://www.juneleo.cn/2021/05/27/Gradle%E8%BE%93%E5%87%BAaar%E5%8C%85%E5%A4%A7%E5%B0%8F/index.html">
+<meta property="og:site_name" content="JuneLeo&#39;s Blog">
+<meta property="og:description" content="参考 AbstractDependencyReportTask   dependencies任务 AppClasspathCheckTask      checkDebugClassPath任务 ApplicationTaskManager VariantScopeImpl  computeArtifactCollection 收集Artifact">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2021-05-27T06:11:00.000Z">
+<meta property="article:modified_time" content="2021-05-27T06:16:37.588Z">
+<meta property="article:author" content="JuneLeo">
+<meta property="article:tag" content="Gradle">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://www.juneleo.cn/2021/05/27/Gradle%E8%BE%93%E5%87%BAaar%E5%8C%85%E5%A4%A7%E5%B0%8F/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>Gradle输出aar包大小 | JuneLeo's Blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">JuneLeo's Blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://www.juneleo.cn/2021/05/27/Gradle%E8%BE%93%E5%87%BAaar%E5%8C%85%E5%A4%A7%E5%B0%8F/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="JuneLeo">
+      <meta itemprop="description" content="Alibaba">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="JuneLeo's Blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Gradle输出aar包大小
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2021-05-27 14:11:00 / 修改时间：14:16:37" itemprop="dateCreated datePublished" datetime="2021-05-27T14:11:00+08:00">2021-05-27</time>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h1 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h1><ul>
+<li>AbstractDependencyReportTask   dependencies任务</li>
+<li>AppClasspathCheckTask      checkDebugClassPath任务</li>
+<li>ApplicationTaskManager</li>
+<li>VariantScopeImpl  computeArtifactCollection 收集Artifact</li>
+</ul>
+<span id="more"></span>
+
+<h1 id="TASK"><a href="#TASK" class="headerlink" title="TASK"></a>TASK</h1><ul>
+<li>复制下面脚本到 miniapp Library项目的build.gradle中</li>
+<li>根目录执行</li>
+</ul>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">./gradlew :amap_bundle_miniapp:miniapp:dpsTask</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<figure class="highlight groovy"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">task dpsTask  &#123;</span><br><span class="line">    doLast &#123;</span><br><span class="line">        <span class="keyword">boolean</span> isExecute = <span class="literal">false</span></span><br><span class="line">        <span class="comment">//仅library生效，application请使用getApplicationVariants</span></span><br><span class="line">        android.getLibraryVariants().all &#123;</span><br><span class="line">            <span class="keyword">if</span>(isExecute)&#123;</span><br><span class="line">                <span class="keyword">return</span></span><br><span class="line">            &#125;</span><br><span class="line">            isExecute = <span class="literal">true</span></span><br><span class="line">            String name = it.getName(); <span class="comment">//name为构建变体组合,根据实际情况获取</span></span><br><span class="line">            <span class="comment">//debugCompileClasspath</span></span><br><span class="line">            Configuration dependenciesConfiguration = getProject().getConfigurations().getByName(name + <span class="string">&quot;CompileClasspath&quot;</span>);</span><br><span class="line">            </span><br><span class="line">             Action&lt;AttributeContainer&gt; attributes = <span class="keyword">new</span> Action&lt;AttributeContainer&gt;() &#123;</span><br><span class="line">                    <span class="meta">@Override</span></span><br><span class="line">                    <span class="keyword">void</span> execute(AttributeContainer container) &#123;</span><br><span class="line">                        <span class="comment">//key : AndroidArtifacts.MODULE_PATH,AndroidArtifacts.ARTIFACT_TYPE</span></span><br><span class="line">                        <span class="comment">//AndroidArtifacts中type类型 aar,android-classes等，会帮我们过滤</span></span><br><span class="line">                        <span class="comment">// 配置有疑问 参考 VariantScopeImpl 中</span></span><br><span class="line">                        <span class="comment">//container.attribute(ARTIFACT_TYPE, &quot;android-classes&quot;);</span></span><br><span class="line">                    &#125;</span><br><span class="line">            &#125;;</span><br><span class="line">           </span><br><span class="line">            </span><br><span class="line">            ArtifactCollection artifactCollection =  dependenciesConfiguration.getIncoming()</span><br><span class="line">                    .artifactView(<span class="keyword">new</span> Action&lt;org.gradle.api.artifacts.ArtifactView.ViewConfiguration&gt;() &#123;</span><br><span class="line">                        <span class="meta">@Override</span></span><br><span class="line">                        <span class="keyword">void</span> execute(org.gradle.api.artifacts.ArtifactView.ViewConfiguration viewConfiguration) &#123;</span><br><span class="line">                            viewConfiguration.lenient(<span class="literal">true</span>)</span><br><span class="line">                            viewConfiguration.attributes(attributes);</span><br><span class="line">                        &#125;</span><br><span class="line">                    &#125;).getArtifacts();</span><br><span class="line"></span><br><span class="line">            Set&lt;ResolvedArtifactResult&gt;  resolvedArtifactResults = artifactCollection.getArtifacts();</span><br><span class="line"></span><br><span class="line">            String path_code = rootProject.rootDir.getAbsolutePath() + <span class="string">&quot;/dependencies.csv&quot;</span>;</span><br><span class="line">            Writer fileWriter = <span class="keyword">new</span> FileWriter(path_code)</span><br><span class="line"></span><br><span class="line">            fileWriter.write(<span class="string">&quot;dependencies&quot;</span>);</span><br><span class="line">            fileWriter.write(<span class="string">&quot;,&quot;</span>);</span><br><span class="line">            fileWriter.write(<span class="string">&quot;size&quot;</span>)</span><br><span class="line">            fileWriter.write(<span class="string">&quot;,&quot;</span>)</span><br><span class="line">            fileWriter.write(<span class="string">&quot;path&quot;</span>)</span><br><span class="line">            <span class="comment">// 如果觉得依赖项过多，可以过滤</span></span><br><span class="line">            <span class="comment">// 获取本build.gradle对应项目的去除重复项的全部依赖</span></span><br><span class="line">            <span class="comment">// dependenciesConfiguration.getIncoming().getResolutionResult().getAllComponents()</span></span><br><span class="line">            <span class="comment">// 获取本build.gradle对应项目的去除不重复项的全部依赖</span></span><br><span class="line">            <span class="comment">// dependenciesConfiguration.getIncoming().getResolutionResult().getAllDependencies()</span></span><br><span class="line">            <span class="comment">// 获取本build.gradle中的写入的依赖，依赖的依赖请遍历获取</span></span><br><span class="line">            <span class="comment">// dependenciesConfiguration.getIncoming().getResolutionResult().getRoot().getDependencies()</span></span><br><span class="line"></span><br><span class="line">            resolvedArtifactResults.forEach(<span class="keyword">new</span> Consumer&lt;ResolvedArtifactResult&gt;() &#123;</span><br><span class="line">                <span class="meta">@Override</span></span><br><span class="line">                <span class="keyword">void</span> accept(ResolvedArtifactResult resolvedArtifactResult) &#123;</span><br><span class="line">                    fileWriter.write(<span class="string">&quot;\n&quot;</span>)</span><br><span class="line">                    fileWriter.write(resolvedArtifactResult.getId().getComponentIdentifier().getDisplayName())</span><br><span class="line">                    fileWriter.write(<span class="string">&quot;,&quot;</span>)</span><br><span class="line">                    fileWriter.write(resolvedArtifactResult.getFile().length()+<span class="string">&quot;&quot;</span>)</span><br><span class="line">                    fileWriter.write(<span class="string">&quot;,&quot;</span>)</span><br><span class="line">                    fileWriter.write(resolvedArtifactResult.getFile().getAbsolutePath())</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;)</span><br><span class="line"></span><br><span class="line">            fileWriter.close()</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+
+<h1 id="输出"><a href="#输出" class="headerlink" title="输出"></a>输出</h1><p>到根目录dependencies.csv</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">dependencies,size,path</span><br><span class="line">com.google.code.gson:gson:2.7,231952,/Users/juneleo/.gradle/caches/modules-2/files-2.1/com.google.code.gson/gson/2.7/751f548c85fa49f330cecbb1875893f971b33c4e/gson-2.7.jar</span><br><span class="line">com.android.support:recyclerview-v7:26.1.0,343863,/Users/juneleo/.gradle/caches/modules-2/files-2.1/com.android.support/recyclerview-v7/26.1.0/d0276ee3e2cc61823610236f7e1f76c700847226/recyclerview-v7-26.1.0.aar</span><br><span class="line">com.android.support:support-core-ui:26.1.0,233096,/Users/juneleo/.gradle/caches/modules-2/files-2.1/com.android.support/support-core-ui/26.1.0/e306308d54052a1ded7bf9c2f5c2fdf5152a1f22/support-core-ui-26.1.0.aar</span><br><span class="line">com.android.support:support-compat:26.1.0,636333,/Users/juneleo/.gradle/caches/modules-2/files-2.1/com.android.support/support-compat/26.1.0/1e1c8ffc01d277d8f01dfd11d5d2ce3a2af4b98c/support-compat-26.1.0.aar</span><br><span class="line">com.android.support:support-annotations:26.1.0,24712,/Users/juneleo/.gradle/caches/modules-2/files-2.1/com.android.support/support-annotations/26.1.0/814258103cf26a15fcc26ecce35f5b7d24b73f8/support-annotations-26.1.0.jar</span><br><span class="line">android.arch.lifecycle:runtime:1.0.0,9603,/Users/juneleo/.gradle/caches/modules-2/files-2.1/android.arch.lifecycle/runtime/1.0.0/30c60a8a357ee1321ffd0c9f08ef54b24045cd10/runtime-1.0.0.aar</span><br><span class="line">android.arch.lifecycle:common:1.0.0,12366,/Users/juneleo/.gradle/caches/modules-2/files-2.1/android.arch.lifecycle/common/1.0.0/e414a4cb28434e25c4f6aa71426eb20cf4874ae9/common-1.0.0.jar</span><br><span class="line">android.arch.core:common:1.0.0,11156,/Users/juneleo/.gradle/caches/modules-2/files-2.1/android.arch.core/common/1.0.0/a2d487452376193fc8c103dd2b9bd5f2b1b44563/common-1.0.0.jar</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Gradle/" rel="tag"># Gradle</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2021/05/24/Git%E5%86%85%E9%83%A8%E5%8E%9F%E7%90%86/" rel="prev" title="Git内部原理">
+      <i class="fa fa-chevron-left"></i> Git内部原理
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%8F%82%E8%80%83"><span class="nav-number">1.</span> <span class="nav-text">参考</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#TASK"><span class="nav-number">2.</span> <span class="nav-text">TASK</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E8%BE%93%E5%87%BA"><span class="nav-number">3.</span> <span class="nav-text">输出</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">JuneLeo</p>
+  <div class="site-description" itemprop="description">Alibaba</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">11</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+        <span class="site-state-item-count">4</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/JuneLeo" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;JuneLeo" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="/june.leo.me@gmail.com" title="E-Mail → june.leo.me@gmail.com"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">JuneLeo</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/pjax/pjax.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+  <script>
+var pjax = new Pjax({
+  selectors: [
+    'head title',
+    '#page-configurations',
+    '.content-wrap',
+    '.post-toc-wrap',
+    '.languages',
+    '#pjax'
+  ],
+  switches: {
+    '.post-toc-wrap': Pjax.switches.innerHTML
+  },
+  analytics: false,
+  cacheBust: false,
+  scrollTo : !CONFIG.bookmark.enable
+});
+
+window.addEventListener('pjax:success', () => {
+  document.querySelectorAll('script[data-pjax], script#page-configurations, #pjax script').forEach(element => {
+    var code = element.text || element.textContent || element.innerHTML || '';
+    var parent = element.parentNode;
+    parent.removeChild(element);
+    var script = document.createElement('script');
+    if (element.id) {
+      script.id = element.id;
+    }
+    if (element.className) {
+      script.className = element.className;
+    }
+    if (element.type) {
+      script.type = element.type;
+    }
+    if (element.src) {
+      script.src = element.src;
+      // Force synchronous loading of peripheral JS.
+      script.async = false;
+    }
+    if (element.dataset.pjax !== undefined) {
+      script.dataset.pjax = '';
+    }
+    if (code !== '') {
+      script.appendChild(document.createTextNode(code));
+    }
+    parent.appendChild(script);
+  });
+  NexT.boot.refresh();
+  // Define Motion Sequence & Bootstrap Motion.
+  if (CONFIG.motion.enable) {
+    NexT.motion.integrator
+      .init()
+      .add(NexT.motion.middleWares.subMenu)
+      .add(NexT.motion.middleWares.postList)
+      .bootstrap();
+  }
+  NexT.utils.updateSidebarPosition();
+});
+</script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <div id="pjax">
+  
+
+  
+
+    </div>
+</body>
+</html>
