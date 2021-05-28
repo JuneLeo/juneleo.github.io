@@ -166,7 +166,7 @@
       <header class="post-header">
         <h2 class="post-title" itemprop="name headline">
           
-            <a href="/2021/05/27/plantUML%E7%BB%98%E5%88%B6/" class="post-title-link" itemprop="url">plantUML绘制</a>
+            <a href="/2021/05/27/plantUML%E7%BB%98%E5%88%B6/" class="post-title-link" itemprop="url">plantUML时序图</a>
         </h2>
 
         <div class="post-meta">
@@ -175,10 +175,16 @@
                 <i class="far fa-calendar"></i>
               </span>
               <span class="post-meta-item-text">发表于</span>
-              
 
-              <time title="创建时间：2021-05-27 20:19:14 / 修改时间：21:16:54" itemprop="dateCreated datePublished" datetime="2021-05-27T20:19:14+08:00">2021-05-27</time>
+              <time title="创建时间：2021-05-27 20:19:14" itemprop="dateCreated datePublished" datetime="2021-05-27T20:19:14+08:00">2021-05-27</time>
             </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2021-05-28 12:56:32" itemprop="dateModified" datetime="2021-05-28T12:56:32+08:00">2021-05-28</time>
+              </span>
 
           
 
@@ -191,11 +197,26 @@
     <div class="post-body" itemprop="articleBody">
 
       
-          <ul>
-<li>@startuml @enduml 开始和结束</li>
-<li>autonumber 步骤序号 1，2，3，……</li>
-<li>Alice -&gt; Bob: Authentication Request</li>
-</ul>
+          <p>对于一些时序性的工作，你可以使用plantuml来构建简单时序关系，它势必会提升你的工作效率。</p>
+<html>
+
+<table border="0" cellpadding="0" cellspacing="0">
+        <tr style="border:#00000000 solid 0px; background-color:#00000000;">
+            <th style="border:#00000000 solid 0px; width:40%; background-color:#00000000;">
+<img src="/2021/05/27/plantUML%E7%BB%98%E5%88%B6/banner.png" class="">
+</th>
+            <th style="border:#00000000 solid 0px; width:60%; background-color:#00000000;">
+
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">@startuml</span><br><span class="line">client -&gt; server : request</span><br><span class="line">server --&gt; proxy : request</span><br><span class="line">server &lt;- proxy : response</span><br><span class="line">server -&gt; client: response</span><br><span class="line">@enduml</span><br></pre></td></tr></table></figure>
+</th>
+        </tr>
+    </table>
+    
+</html>
+
+
+
+<p>建立两个参与者，你可以使用简单的-&gt; ,&lt;- ,–&gt; ,&lt;–等符号来实现参与者之间的消息传递。</p>
           <!--noindex-->
             <div class="post-button">
               <a class="btn" href="/2021/05/27/plantUML%E7%BB%98%E5%88%B6/#more" rel="contents">
