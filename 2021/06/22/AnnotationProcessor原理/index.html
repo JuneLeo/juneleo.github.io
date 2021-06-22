@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"www.juneleo.cn","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="AnnotationProcessor（apt） 这个单词组合我们经常在build.gradle 中看到，或许大部分人都知道它是用来做什么的，也有部分人会使用apt通过注解生成代码，但是相信大部分人仅仅只是会用，而没有关注过apt的原理 今天我将从gradle编译流程的角度来给大家分享Apt的原理">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Apt原理">
+<meta property="og:url" content="http://www.juneleo.cn/2021/06/22/AnnotationProcessor%E5%8E%9F%E7%90%86/index.html">
+<meta property="og:site_name" content="JuneLeo&#39;s Blog">
+<meta property="og:description" content="AnnotationProcessor（apt） 这个单词组合我们经常在build.gradle 中看到，或许大部分人都知道它是用来做什么的，也有部分人会使用apt通过注解生成代码，但是相信大部分人仅仅只是会用，而没有关注过apt的原理 今天我将从gradle编译流程的角度来给大家分享Apt的原理">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://www.juneleo.cn/2021/06/22/AnnotationProcessor%E5%8E%9F%E7%90%86/img.png">
+<meta property="og:image" content="http://www.juneleo.cn/2021/06/22/AnnotationProcessor%E5%8E%9F%E7%90%86/img_1.png">
+<meta property="og:image" content="http://www.juneleo.cn/2021/06/22/AnnotationProcessor%E5%8E%9F%E7%90%86/img_2.png">
+<meta property="og:image" content="http://www.juneleo.cn/2021/06/22/AnnotationProcessor%E5%8E%9F%E7%90%86/img_3.png">
+<meta property="og:image" content="http://www.juneleo.cn/2021/06/22/AnnotationProcessor%E5%8E%9F%E7%90%86/img_4.png">
+<meta property="og:image" content="http://www.juneleo.cn/2021/06/22/AnnotationProcessor%E5%8E%9F%E7%90%86/img_5.png">
+<meta property="og:image" content="http://www.juneleo.cn/2021/06/22/AnnotationProcessor%E5%8E%9F%E7%90%86/img_6.png">
+<meta property="og:image" content="http://www.juneleo.cn/2021/06/22/AnnotationProcessor%E5%8E%9F%E7%90%86/img_7.png">
+<meta property="article:published_time" content="2021-06-22T01:35:20.000Z">
+<meta property="article:modified_time" content="2021-06-22T02:27:05.056Z">
+<meta property="article:author" content="JuneLeo">
+<meta property="article:tag" content="Gradle">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://www.juneleo.cn/2021/06/22/AnnotationProcessor%E5%8E%9F%E7%90%86/img.png">
+
+<link rel="canonical" href="http://www.juneleo.cn/2021/06/22/AnnotationProcessor%E5%8E%9F%E7%90%86/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>Apt原理 | JuneLeo's Blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">JuneLeo's Blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://www.juneleo.cn/2021/06/22/AnnotationProcessor%E5%8E%9F%E7%90%86/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="JuneLeo">
+      <meta itemprop="description" content="Alibaba">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="JuneLeo's Blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Apt原理
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2021-06-22 09:35:20 / 修改时间：10:27:05" itemprop="dateCreated datePublished" datetime="2021-06-22T09:35:20+08:00">2021-06-22</time>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>AnnotationProcessor（apt） 这个单词组合我们经常在build.gradle 中看到，或许大部分人都知道它是用来做什么的，也有部分人会使用apt通过注解生成代码，但是相信大部分人仅仅只是会用，而没有关注过apt的原理</p>
+<p>今天我将从gradle编译流程的角度来给大家分享Apt的原理</p>
+<span id="more"></span>
+
+<h1 id="SPI使用"><a href="#SPI使用" class="headerlink" title="SPI使用"></a>SPI使用</h1><p>讲解apt首先从spi讲起，因为spi也是使用了apt注解生成代码的，如果细心一点你一定会发现它是使用AutoServiceProcessor来寻找@AutoService的，下面看看如何来使用它。</p>
+<p><strong>build.gradle</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">implementation &#x27;com.google.auto.service:auto-service:1.0-rc7&#x27; </span><br></pre></td></tr></table></figure>
+
+<p><strong>ITest.java</strong></p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">interface</span> <span class="title">ITest</span> </span>&#123;</span><br><span class="line">    <span class="function"><span class="keyword">void</span> <span class="title">print</span><span class="params">()</span></span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><strong>Test.java</strong></p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@AutoService(ITest.class)</span></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">Test</span> <span class="keyword">implements</span> <span class="title">ITest</span> </span>&#123;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">print</span><span class="params">()</span> </span>&#123;</span><br><span class="line">        Log.d(<span class="string">&quot;song&quot;</span>, <span class="string">&quot;hahaha&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><strong>调用测试</strong></p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ServiceLoader.load(ITest.class).iterator().next().print();</span><br></pre></td></tr></table></figure>
+
+<img src="/2021/06/22/AnnotationProcessor%E5%8E%9F%E7%90%86/img.png" class="">
+
+<p>ITest.java是一个接口，Test.java 是接口的实现，通过注解@AutoService将接口和实现绑定到了一起，ServiceLoader调用的时候可以获取到接口实现的实例，那么它是怎么做到的呢，我们下面继续看ServiceLoader源码。</p>
+<h1 id="ServiceLoader"><a href="#ServiceLoader" class="headerlink" title="ServiceLoader"></a>ServiceLoader</h1><p>首先ServiceLoader来自于java.util.*，那么它是jdk里面自带的类。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">final</span> <span class="class"><span class="keyword">class</span> <span class="title">ServiceLoader</span>&lt;<span class="title">S</span>&gt;</span></span><br><span class="line"><span class="class">    <span class="keyword">implements</span> <span class="title">Iterable</span>&lt;<span class="title">S</span>&gt;</span></span><br><span class="line"><span class="class"></span>&#123;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> String PREFIX = <span class="string">&quot;META-INF/services/&quot;</span>;</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> &lt;S&gt; <span class="function">ServiceLoader&lt;S&gt; <span class="title">load</span><span class="params">(Class&lt;S&gt; service,</span></span></span><br><span class="line"><span class="params"><span class="function">                                            ClassLoader loader)</span></span></span><br><span class="line"><span class="function">    </span>&#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">new</span> ServiceLoader&lt;&gt;(service, loader); <span class="comment">//实例化一个ServiceLoader</span></span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">reload</span><span class="params">()</span> </span>&#123;</span><br><span class="line">        providers.clear(); <span class="comment">//缓存作用</span></span><br><span class="line">        lookupIterator = <span class="keyword">new</span> LazyIterator(service, loader);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">private</span> <span class="title">ServiceLoader</span><span class="params">(Class&lt;S&gt; svc, ClassLoader cl)</span> </span>&#123;</span><br><span class="line">        service = Objects.requireNonNull(svc, <span class="string">&quot;Service interface cannot be null&quot;</span>);</span><br><span class="line">        loader = (cl == <span class="keyword">null</span>) ? ClassLoader.getSystemClassLoader() : cl;</span><br><span class="line">        reload();</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">     <span class="keyword">private</span> <span class="class"><span class="keyword">class</span> <span class="title">LazyIterator</span></span></span><br><span class="line"><span class="class">        <span class="keyword">implements</span> <span class="title">Iterator</span>&lt;<span class="title">S</span>&gt;</span></span><br><span class="line"><span class="class">    </span>&#123;</span><br><span class="line">        <span class="function"><span class="keyword">private</span> <span class="keyword">boolean</span> <span class="title">hasNextService</span><span class="params">()</span> </span>&#123;</span><br><span class="line">            <span class="keyword">if</span> (nextName != <span class="keyword">null</span>) &#123;</span><br><span class="line">                <span class="keyword">return</span> <span class="keyword">true</span>;</span><br><span class="line">            &#125;</span><br><span class="line">            <span class="keyword">if</span> (configs == <span class="keyword">null</span>) &#123;</span><br><span class="line">                <span class="keyword">try</span> &#123;</span><br><span class="line">                  <span class="comment">// META-INF/services/com.leo.events.cardcontrol.ITest</span></span><br><span class="line">                    String fullName = PREFIX + service.getName();</span><br><span class="line">                    <span class="keyword">if</span> (loader == <span class="keyword">null</span>)</span><br><span class="line">                        configs = ClassLoader.getSystemResources(fullName);</span><br><span class="line">                    <span class="keyword">else</span></span><br><span class="line">                        configs = loader.getResources(fullName);</span><br><span class="line">                &#125; <span class="keyword">catch</span> (IOException x) &#123;</span><br><span class="line">                    fail(service, <span class="string">&quot;Error locating configuration files&quot;</span>, x);</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;</span><br><span class="line">            <span class="keyword">while</span> ((pending == <span class="keyword">null</span>) || !pending.hasNext()) &#123;</span><br><span class="line">                <span class="keyword">if</span> (!configs.hasMoreElements()) &#123;</span><br><span class="line">                    <span class="keyword">return</span> <span class="keyword">false</span>;</span><br><span class="line">                &#125;</span><br><span class="line">                pending = parse(service, configs.nextElement());</span><br><span class="line">            &#125;</span><br><span class="line">            nextName = pending.next();</span><br><span class="line">            <span class="keyword">return</span> <span class="keyword">true</span>;</span><br><span class="line">        &#125;</span><br><span class="line">        </span><br><span class="line">        <span class="function"><span class="keyword">private</span> S <span class="title">nextService</span><span class="params">()</span> </span>&#123;</span><br><span class="line">        <span class="keyword">if</span> (!hasNextService())</span><br><span class="line">            <span class="keyword">throw</span> <span class="keyword">new</span> NoSuchElementException();</span><br><span class="line">        String cn = nextName;</span><br><span class="line">        nextName = <span class="keyword">null</span>;</span><br><span class="line">        Class&lt;?&gt; c = <span class="keyword">null</span>;</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            c = Class.forName(cn, <span class="keyword">false</span>, loader); <span class="comment">// 获取class</span></span><br><span class="line">        &#125; <span class="keyword">catch</span> (ClassNotFoundException x) &#123;</span><br><span class="line"></span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">if</span> (!service.isAssignableFrom(c)) &#123;</span><br><span class="line"></span><br><span class="line">            ClassCastException cce = <span class="keyword">new</span> ClassCastException(</span><br><span class="line">                    service.getCanonicalName() + <span class="string">&quot; is not assignable from &quot;</span> + c.getCanonicalName());</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            S p = service.cast(c.newInstance()); <span class="comment">//实例化</span></span><br><span class="line">            providers.put(cn, p);</span><br><span class="line">            <span class="keyword">return</span> p;</span><br><span class="line">        &#125; <span class="keyword">catch</span> (Throwable x) &#123;</span><br><span class="line">            fail(service,</span><br><span class="line">                    <span class="string">&quot;Provider &quot;</span> + cn + <span class="string">&quot; could not be instantiated&quot;</span>,</span><br><span class="line">                    x);</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">throw</span> <span class="keyword">new</span> Error();          <span class="comment">// This cannot happen</span></span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    <span class="function"><span class="keyword">private</span> Iterator&lt;String&gt; <span class="title">parse</span><span class="params">(Class&lt;?&gt; service, URL u)</span></span></span><br><span class="line"><span class="function">        <span class="keyword">throws</span> ServiceConfigurationError</span></span><br><span class="line"><span class="function">    </span>&#123;</span><br><span class="line">        InputStream in = <span class="keyword">null</span>;</span><br><span class="line">        BufferedReader r = <span class="keyword">null</span>;</span><br><span class="line">        ArrayList&lt;String&gt; names = <span class="keyword">new</span> ArrayList&lt;&gt;();</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            in = u.openStream();</span><br><span class="line">            r = <span class="keyword">new</span> BufferedReader(<span class="keyword">new</span> InputStreamReader(in, <span class="string">&quot;utf-8&quot;</span>));</span><br><span class="line">            <span class="keyword">int</span> lc = <span class="number">1</span>;</span><br><span class="line">            <span class="keyword">while</span> ((lc = parseLine(service, u, r, lc, names)) &gt;= <span class="number">0</span>);</span><br><span class="line">        &#125; <span class="keyword">catch</span> (IOException x) &#123;</span><br><span class="line">            fail(service, <span class="string">&quot;Error reading configuration file&quot;</span>, x);</span><br><span class="line">        &#125; <span class="keyword">finally</span> &#123;</span><br><span class="line">            <span class="keyword">try</span> &#123;</span><br><span class="line">                <span class="keyword">if</span> (r != <span class="keyword">null</span>) r.close();</span><br><span class="line">                <span class="keyword">if</span> (in != <span class="keyword">null</span>) in.close();</span><br><span class="line">            &#125; <span class="keyword">catch</span> (IOException y) &#123;</span><br><span class="line">                fail(service, <span class="string">&quot;Error closing configuration file&quot;</span>, y);</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span> names.iterator();</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>从调用链来看，首先是load方法，进行了初始化ServiceLoader，初始化一个LazyIterator迭代器，紧接着遍历迭代器，获取到接口实例，然后调用接口方法；获取Test实例的方式是通过读取META-INF/services/com.leo.events.cardcontrol.ITest文件，然后解析文件，在通过反射初始化</p>
+<img src="/2021/06/22/AnnotationProcessor%E5%8E%9F%E7%90%86/img_1.png" class="">
+
+<p>从图片中我们应该可以很清晰的看到，ServiceLoader的原理就是通过接口名称，在META-INF/services/目录下找到对应的文件，然后文件中的内容就是接口的实现类名称</p>
+<p>紧接着我们来看META-INF/services 路径下的文件是怎么生成的，我们从构建编译来开始讲</p>
+<h1 id="AutoService"><a href="#AutoService" class="headerlink" title="AutoService"></a>AutoService</h1><h2 id="JavaPreCompileTask"><a href="#JavaPreCompileTask" class="headerlink" title="JavaPreCompileTask"></a>JavaPreCompileTask</h2><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">|------------------------------------------------------------------------</span><br><span class="line"> | javaPreCompileDebug , poseidon|</span><br><span class="line"> |------------------------------------------------------------------------</span><br><span class="line"> | com.android.build.gradle.tasks.JavaPreCompileTask_Decorated</span><br><span class="line"> |------------------------------------------------------------------------</span><br><span class="line">        | inputs file|</span><br><span class="line">        |-----------------------------------------------------------------</span><br><span class="line">        | 没有inputs路径</span><br><span class="line">        |-----------------------------------------------------------------</span><br><span class="line">        | outputs file|</span><br><span class="line">        |-----------------------------------------------------------------</span><br><span class="line">        | /Users/juneleo/demo/CardControl/poseidon/build/intermediates/annotation_processor_list/debug/annotationProcessors.json</span><br><span class="line">        |-----------------------------------------------------------------</span><br></pre></td></tr></table></figure>
+
+<p>在compileDebugJavaWithJavac之前执行javaPreCompileDebug，这个任务会输出annotationProcessors.json</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">  &quot;bundle_apt-1.1.3.jar (com.autonavi.scm:bundle_apt:1.1.3)&quot;: false,</span><br><span class="line">  &quot;aui-annotation-0.0.7.jar (com.autonavi.aui-annotation:aui-annotation:0.0.7)&quot;: false,</span><br><span class="line">  &quot;hostkeep.jar (project :hostkeep)&quot;: false,</span><br><span class="line">  &quot;auto-service-1.0-rc7.jar (com.google.auto.service:auto-service:1.0-rc7)&quot;: true</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>在这个json中指定了使用annotationProcessor依赖的项目</p>
+<p>我们在编译apt项目时，在生成的apt jar包中我们可以看到如下</p>
+<img src="/2021/06/22/AnnotationProcessor%E5%8E%9F%E7%90%86/img_2.png" class="">
+
+<p>或者在autoservice jar包中也可以看到如下</p>
+<img src="/2021/06/22/AnnotationProcessor%E5%8E%9F%E7%90%86/img_3.png" class="">
+
+<p>而下方代码对META-INF/services/下方的文件进行了解析并进行了输出</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">abstract</span> <span class="class"><span class="keyword">class</span> <span class="title">JavaPreCompileWorkAction</span> : <span class="title">ProfileAwareWorkAction</span>&lt;<span class="title">JavaPreCompileParameters</span>&gt;() </span>&#123;</span><br><span class="line"></span><br><span class="line">    <span class="function">override fun <span class="title">run</span><span class="params">()</span> </span>&#123;</span><br><span class="line">        <span class="comment">//获取 META-INF/services/javax.annotation.processing.Processor 的依赖</span></span><br><span class="line">        val annotationProcessors =</span><br><span class="line">            detectAnnotationProcessors(</span><br><span class="line">                parameters.annotationProcessorClassNames.get(),</span><br><span class="line">                parameters.annotationProcessorArtifacts.get()</span><br><span class="line">            )</span><br><span class="line">        <span class="comment">//输出到CardControl/app/build/intermediates/annotation_processor_list/debug/annotationProcessors.json   </span></span><br><span class="line">        writeAnnotationProcessorsToJsonFile(</span><br><span class="line">            annotationProcessors, parameters.annotationProcessorListFile.get().asFile</span><br><span class="line">        )</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="keyword">const</span> val ANNOTATION_PROCESSORS_INDICATOR_FILE =</span><br><span class="line">    <span class="string">&quot;META-INF/services/javax.annotation.processing.Processor&quot;</span></span><br><span class="line"><span class="keyword">const</span> val INCREMENTAL_ANNOTATION_PROCESSORS_INDICATOR_FILE =</span><br><span class="line">    <span class="string">&quot;META-INF/gradle/incremental.annotation.processors&quot;</span></span><br><span class="line">    </span><br><span class="line"><span class="function">fun <span class="title">detectAnnotationProcessors</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">    artifacts: Collection&lt;SerializableArtifact&gt;</span></span></span><br><span class="line"><span class="params"><span class="function">)</span>: Map&lt;SerializableArtifact, Boolean&gt; </span>&#123;</span><br><span class="line">    <span class="comment">// TODO We assume that an artifact has an annotation processor if it contains</span></span><br><span class="line">    <span class="comment">// ANNOTATION_PROCESSORS_INDICATOR_FILE, and the processor is incremental if it contains</span></span><br><span class="line">    <span class="comment">// INCREMENTAL_ANNOTATION_PROCESSORS_INDICATOR_FILE. We need to revisit this assumption as the</span></span><br><span class="line">    <span class="comment">// processors may register as incremental dynamically.</span></span><br><span class="line">    val processors = mutableMapOf&lt;SerializableArtifact, Boolean&gt;()</span><br><span class="line"></span><br><span class="line">    <span class="keyword">for</span> (artifact in artifacts) &#123;</span><br><span class="line">        val artifactFile = artifact.file</span><br><span class="line">        <span class="comment">// 文件夹 </span></span><br><span class="line">        <span class="keyword">if</span> (artifactFile.isDirectory) &#123;</span><br><span class="line">            <span class="keyword">if</span> (File(artifactFile, ANNOTATION_PROCESSORS_INDICATOR_FILE).exists()) &#123;</span><br><span class="line">                processors[artifact] =</span><br><span class="line">                        File(artifactFile, INCREMENTAL_ANNOTATION_PROCESSORS_INDICATOR_FILE)</span><br><span class="line">                            .exists()</span><br><span class="line">            &#125;</span><br><span class="line">            </span><br><span class="line">        &#125; <span class="keyword">else</span> <span class="keyword">if</span> (artifactFile.isFile) &#123; <span class="comment">//文件 一般都是jar包</span></span><br><span class="line">            <span class="keyword">try</span> &#123;</span><br><span class="line">                JarFile(artifactFile).use &#123; jarFile -&gt;</span><br><span class="line">                    <span class="comment">//如果包含 META-INF/services/javax.annotation.processing.Processor   </span></span><br><span class="line">                    <span class="keyword">if</span> (jarFile.getJarEntry(ANNOTATION_PROCESSORS_INDICATOR_FILE) != <span class="keyword">null</span>) &#123;</span><br><span class="line">                        processors[artifact] = jarFile.getJarEntry(</span><br><span class="line">                            INCREMENTAL_ANNOTATION_PROCESSORS_INDICATOR_FILE</span><br><span class="line">                        ) != <span class="keyword">null</span></span><br><span class="line">                    &#125;</span><br><span class="line">                &#125;</span><br><span class="line">            &#125; <span class="keyword">catch</span> (e: IOException) &#123;</span><br><span class="line">                <span class="comment">// Can happen when we encounter a folder instead of a jar; for instance, in</span></span><br><span class="line">                <span class="comment">// sub-modules. We&#x27;re just displaying a warning, so there&#x27;s no need to stop the</span></span><br><span class="line">                <span class="comment">// build here. See http://issuetracker.google.com/64283041.</span></span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> processors</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<img src="/2021/06/22/AnnotationProcessor%E5%8E%9F%E7%90%86/img_4.png" class="">
+
+
+<h2 id="JavaCompile"><a href="#JavaCompile" class="headerlink" title="JavaCompile"></a>JavaCompile</h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">|------------------------------------------------------------------------</span><br><span class="line"> | compileDebugJavaWithJavac , app|</span><br><span class="line"> |------------------------------------------------------------------------</span><br><span class="line"> | org.gradle.api.tasks.compile.JavaCompile_Decorated</span><br><span class="line"> |------------------------------------------------------------------------</span><br><span class="line">        | inputs file|</span><br><span class="line">        |-----------------------------------------------------------------</span><br><span class="line">        | /Users/juneleo/demo/CardControl/app/build/intermediates/annotation_processor_list/debug/annotationProcessors.json</span><br><span class="line">        | //省略jar包和java文件</span><br><span class="line">        |-----------------------------------------------------------------</span><br><span class="line">        | outputs file|</span><br><span class="line">        |-----------------------------------------------------------------</span><br><span class="line">        | /Users/juneleo/demo/CardControl/app/build/generated/ap_generated_sources/debug/out</span><br><span class="line">        | /Users/juneleo/demo/CardControl/app/build/intermediates/javac/debug/classes</span><br><span class="line">        |-----------------------------------------------------------------</span><br></pre></td></tr></table></figure>
+
+<p>从图中我们可以看到JavaPreCompileTask的输出作为了JavaCompile的输入</p>
+<img src="/2021/06/22/AnnotationProcessor%E5%8E%9F%E7%90%86/img_5.png" class="">
+
+<p>调用链请下载查看</p>
+<p>JavaCompile调用jdk入口</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> Result <span class="title">doCall</span><span class="params">()</span> </span>&#123;</span><br><span class="line">        <span class="keyword">if</span> (!<span class="keyword">this</span>.used.getAndSet(<span class="keyword">true</span>)) &#123;</span><br><span class="line">            <span class="keyword">this</span>.initContext();</span><br><span class="line">            <span class="keyword">this</span>.notYetEntered = <span class="keyword">new</span> HashMap();</span><br><span class="line">            <span class="keyword">this</span>.compilerMain.setAPIMode(<span class="keyword">true</span>);</span><br><span class="line">            <span class="comment">//最后一个参数为annotationProcessor相关</span></span><br><span class="line">            <span class="keyword">this</span>.result = <span class="keyword">this</span>.compilerMain.compile(<span class="keyword">this</span>.args, <span class="keyword">this</span>.classNames, <span class="keyword">this</span>.context, <span class="keyword">this</span>.fileObjects, <span class="keyword">this</span>.processors);</span><br><span class="line">            <span class="keyword">this</span>.cleanup();</span><br><span class="line">            <span class="keyword">return</span> <span class="keyword">this</span>.result;</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            <span class="keyword">throw</span> <span class="keyword">new</span> IllegalStateException(<span class="string">&quot;multiple calls to method &#x27;call&#x27;&quot;</span>);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+
+<p>args参数</p>
+<img src="/2021/06/22/AnnotationProcessor%E5%8E%9F%E7%90%86/img_6.png" class="">
+
+<p>processor参数</p>
+<img src="/2021/06/22/AnnotationProcessor%E5%8E%9F%E7%90%86/img_7.png" class="">
+
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><ul>
+<li>AutoService注解只是为了让编译器能找到Processor类</li>
+<li>JavaCompiler（可以认为是javac）compile之前会进行会进行processAnnotations生成类</li>
+<li>JavaCompiler 并没有调用javac，而是调用内部方法循环调用generate生成每一个class</li>
+<li>JavaCompile是任务compileDebugJavaWithJavac，JavaCompiler是jdk中的class生成器</li>
+</ul>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Gradle/" rel="tag"># Gradle</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2021/06/11/Gradle%E6%9B%BF%E6%8D%A2task2/" rel="prev" title="Gradle替换task(二)">
+      <i class="fa fa-chevron-left"></i> Gradle替换task(二)
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#SPI%E4%BD%BF%E7%94%A8"><span class="nav-number">1.</span> <span class="nav-text">SPI使用</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#ServiceLoader"><span class="nav-number">2.</span> <span class="nav-text">ServiceLoader</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#AutoService"><span class="nav-number">3.</span> <span class="nav-text">AutoService</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#JavaPreCompileTask"><span class="nav-number">3.1.</span> <span class="nav-text">JavaPreCompileTask</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#JavaCompile"><span class="nav-number">3.2.</span> <span class="nav-text">JavaCompile</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">4.</span> <span class="nav-text">总结</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">JuneLeo</p>
+  <div class="site-description" itemprop="description">Alibaba</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">18</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+        <span class="site-state-item-count">7</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/JuneLeo" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;JuneLeo" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="/june.leo.me@gmail.com" title="E-Mail → june.leo.me@gmail.com"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">JuneLeo</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/pjax/pjax.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+  <script>
+var pjax = new Pjax({
+  selectors: [
+    'head title',
+    '#page-configurations',
+    '.content-wrap',
+    '.post-toc-wrap',
+    '.languages',
+    '#pjax'
+  ],
+  switches: {
+    '.post-toc-wrap': Pjax.switches.innerHTML
+  },
+  analytics: false,
+  cacheBust: false,
+  scrollTo : !CONFIG.bookmark.enable
+});
+
+window.addEventListener('pjax:success', () => {
+  document.querySelectorAll('script[data-pjax], script#page-configurations, #pjax script').forEach(element => {
+    var code = element.text || element.textContent || element.innerHTML || '';
+    var parent = element.parentNode;
+    parent.removeChild(element);
+    var script = document.createElement('script');
+    if (element.id) {
+      script.id = element.id;
+    }
+    if (element.className) {
+      script.className = element.className;
+    }
+    if (element.type) {
+      script.type = element.type;
+    }
+    if (element.src) {
+      script.src = element.src;
+      // Force synchronous loading of peripheral JS.
+      script.async = false;
+    }
+    if (element.dataset.pjax !== undefined) {
+      script.dataset.pjax = '';
+    }
+    if (code !== '') {
+      script.appendChild(document.createTextNode(code));
+    }
+    parent.appendChild(script);
+  });
+  NexT.boot.refresh();
+  // Define Motion Sequence & Bootstrap Motion.
+  if (CONFIG.motion.enable) {
+    NexT.motion.integrator
+      .init()
+      .add(NexT.motion.middleWares.subMenu)
+      .add(NexT.motion.middleWares.postList)
+      .bootstrap();
+  }
+  NexT.utils.updateSidebarPosition();
+});
+</script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <div id="pjax">
+  
+
+  
+
+    </div>
+</body>
+</html>
