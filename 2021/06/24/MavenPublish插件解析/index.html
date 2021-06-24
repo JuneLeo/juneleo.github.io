@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"www.juneleo.cn","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="使用添加plugin 123plugins &amp;#123;    id &amp;#x27;maven-publish&amp;#x27;&amp;#125;">
+<meta property="og:type" content="article">
+<meta property="og:title" content="MavenPublish插件解析">
+<meta property="og:url" content="http://www.juneleo.cn/2021/06/24/MavenPublish%E6%8F%92%E4%BB%B6%E8%A7%A3%E6%9E%90/index.html">
+<meta property="og:site_name" content="JuneLeo&#39;s Blog">
+<meta property="og:description" content="使用添加plugin 123plugins &amp;#123;    id &amp;#x27;maven-publish&amp;#x27;&amp;#125;">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://www.juneleo.cn/2021/06/24/MavenPublish%E6%8F%92%E4%BB%B6%E8%A7%A3%E6%9E%90/img.png">
+<meta property="og:image" content="http://www.juneleo.cn/2021/06/24/MavenPublish%E6%8F%92%E4%BB%B6%E8%A7%A3%E6%9E%90/img_1.png">
+<meta property="article:published_time" content="2021-06-24T13:06:10.000Z">
+<meta property="article:modified_time" content="2021-06-24T13:12:37.681Z">
+<meta property="article:author" content="JuneLeo">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://www.juneleo.cn/2021/06/24/MavenPublish%E6%8F%92%E4%BB%B6%E8%A7%A3%E6%9E%90/img.png">
+
+<link rel="canonical" href="http://www.juneleo.cn/2021/06/24/MavenPublish%E6%8F%92%E4%BB%B6%E8%A7%A3%E6%9E%90/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>MavenPublish插件解析 | JuneLeo's Blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">JuneLeo's Blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://www.juneleo.cn/2021/06/24/MavenPublish%E6%8F%92%E4%BB%B6%E8%A7%A3%E6%9E%90/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="JuneLeo">
+      <meta itemprop="description" content="Alibaba">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="JuneLeo's Blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          MavenPublish插件解析
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2021-06-24 21:06:10 / 修改时间：21:12:37" itemprop="dateCreated datePublished" datetime="2021-06-24T21:06:10+08:00">2021-06-24</time>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h1 id="使用"><a href="#使用" class="headerlink" title="使用"></a>使用</h1><p><strong>添加plugin</strong></p>
+<figure class="highlight groovy"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">plugins &#123;</span><br><span class="line">    id <span class="string">&#x27;maven-publish&#x27;</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<span id="more"></span>
+
+<p><strong>添加extension</strong></p>
+<figure class="highlight groovy"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br></pre></td><td class="code"><pre><span class="line">publishing &#123;</span><br><span class="line">    publications &#123;</span><br><span class="line">        </span><br><span class="line">        maven(MavenPublication) &#123; <span class="comment">// MavenPublication</span></span><br><span class="line">            groupId <span class="string">&#x27;com.miniapp.tools&#x27;</span></span><br><span class="line">            artifactId <span class="string">&#x27;sample&#x27;</span></span><br><span class="line">            version <span class="string">&#x27;0.0.1&#x27;</span></span><br><span class="line">            </span><br><span class="line">            from components.java  <span class="comment">//SoftwareComponent 主要作用是pom中写入依赖项目</span></span><br><span class="line">            </span><br><span class="line">            pom &#123;</span><br><span class="line">                <span class="comment">// MavenPom 手动给pom中添加一些信息(依赖，描述，licenses，组织，开发者，团队，scm等)</span></span><br><span class="line">            &#125;</span><br><span class="line">            </span><br><span class="line">            artifact &#123; <span class="comment">// 工件</span></span><br><span class="line">                <span class="comment">// 仓库中上传的资源，可以是jar，source等</span></span><br><span class="line">                <span class="comment">// miniapp_apt_debug.zip</span></span><br><span class="line">                <span class="comment">// classifier &#x27;debug&#x27;   // 名称后缀   </span></span><br><span class="line">                <span class="comment">// extension &#x27;zip&#x27;   // 文件类型</span></span><br><span class="line">            &#125;</span><br><span class="line">            </span><br><span class="line">            versionMapping &#123;</span><br><span class="line">                <span class="comment">// pom 中 替换版本</span></span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="comment">// 这种写法很诡异，它其实调用了 &lt;U extends T&gt; U create(String name, Class&lt;U&gt; type);</span></span><br><span class="line">        <span class="comment">// 下面的写法同publishing.publications.create(&quot;myMaven&quot;,MavenPlblication.class);</span></span><br><span class="line">        myMaven(MavenPublication) &#123;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    repositories &#123;</span><br><span class="line">        mavenLocal() <span class="comment">// mavenLocal仓库</span></span><br><span class="line">        maven &#123;      <span class="comment">// remote仓库</span></span><br><span class="line">            name <span class="string">&#x27;remote&#x27;</span></span><br><span class="line">            url mvn_repo</span><br><span class="line">            credentials &#123;</span><br><span class="line">                username = mvn_username</span><br><span class="line">                password = mvn_password</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h1 id="原理"><a href="#原理" class="headerlink" title="原理"></a>原理</h1><h2 id="初始化"><a href="#初始化" class="headerlink" title="初始化"></a>初始化</h2><p><strong>publishing tasks</strong></p>
+<figure class="highlight groovy"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">./<span class="attr">gradlew :</span><span class="attr">amap_miniapp_compiler:</span>tasks</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight groovy"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// metadata</span></span><br><span class="line">generateMetadataFileForMavenPublication - Generates the Gradle metadata file <span class="keyword">for</span> publication <span class="string">&#x27;maven&#x27;</span>.</span><br><span class="line"><span class="comment">// 生成pom</span></span><br><span class="line">generatePomFileForMavenPublication - Generates the Maven POM file <span class="keyword">for</span> publication <span class="string">&#x27;maven&#x27;</span>.</span><br><span class="line"><span class="comment">// 发布所有</span></span><br><span class="line">publish - Publishes all publications produced by <span class="built_in">this</span> project.</span><br><span class="line"><span class="comment">// 发布所有的 Publications</span></span><br><span class="line">publishAllPublicationsToMavenLocalRepository - Publishes all Maven publications produced by <span class="built_in">this</span> project to the MavenLocal repository.</span><br><span class="line"><span class="comment">// 发布所有的 Publications</span></span><br><span class="line">publishAllPublicationsToRemoteRepository - Publishes all Maven publications produced by <span class="built_in">this</span> project to the remote repository.</span><br><span class="line"><span class="comment">// 内置mavenlocal</span></span><br><span class="line">publishMavenPublicationToMavenLocal - Publishes Maven publication <span class="string">&#x27;maven&#x27;</span> to the local Maven repository.</span><br><span class="line"><span class="comment">// 发布到自定义本地仓库</span></span><br><span class="line">publishMavenPublicationToMavenLocalRepository - Publishes Maven publication <span class="string">&#x27;maven&#x27;</span> to Maven repository <span class="string">&#x27;MavenLocal&#x27;</span>.</span><br><span class="line"><span class="comment">//发布到自定义的源端仓库</span></span><br><span class="line">publishMavenPublicationToRemoteRepository - Publishes Maven publication <span class="string">&#x27;maven&#x27;</span> to Maven repository <span class="string">&#x27;remote&#x27;</span>.</span><br><span class="line"><span class="comment">// plugin内置的一个 publish</span></span><br><span class="line">publishToMavenLocal - Publishes all Maven publications produced by <span class="built_in">this</span> project to the local Maven cache.</span><br></pre></td></tr></table></figure>
+
+<p><strong>MavenPublishPlugin</strong></p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">MavenPublishPlugin</span> <span class="keyword">implements</span> <span class="title">Plugin</span>&lt;<span class="title">Project</span>&gt; </span>&#123;</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">apply</span><span class="params">(<span class="keyword">final</span> Project project)</span> </span>&#123;</span><br><span class="line">        <span class="comment">//执行 PublishingPlugin apply</span></span><br><span class="line">        project.getPluginManager().apply(PublishingPlugin.class);</span><br><span class="line">    </span><br><span class="line">        <span class="keyword">final</span> TaskContainer tasks = project.getTasks();</span><br><span class="line">        <span class="comment">//注册task publishToMavenLocal</span></span><br><span class="line">        tasks.register(PUBLISH_LOCAL_LIFECYCLE_TASK_NAME, publish -&gt; &#123;</span><br><span class="line">            publish.setDescription(<span class="string">&quot;Publishes all Maven publications produced by this project to the local Maven cache.&quot;</span>);</span><br><span class="line">            publish.setGroup(PublishingPlugin.PUBLISH_TASK_GROUP);</span><br><span class="line">        &#125;);</span><br><span class="line"></span><br><span class="line">        project.getExtensions().configure(PublishingExtension.class, extension -&gt; &#123;</span><br><span class="line">            <span class="comment">//注册 MavenPublicationFactory，它可以帮我们通过myMaven构建一个 MavenPublication</span></span><br><span class="line">            extension.getPublications().registerFactory(MavenPublication.class, <span class="keyword">new</span> MavenPublicationFactory(</span><br><span class="line">                    dependencyMetaDataProvider,</span><br><span class="line">                    instantiatorFactory.decorateLenient(),</span><br><span class="line">                    fileResolver,</span><br><span class="line">                    project.getPluginManager(),</span><br><span class="line">                    project.getExtensions()));</span><br><span class="line">            <span class="comment">// 注册task</span></span><br><span class="line">            realizePublishingTasksLater(project, extension);</span><br><span class="line">        &#125;);</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    <span class="function"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title">realizePublishingTasksLater</span><span class="params">(<span class="keyword">final</span> Project project, <span class="keyword">final</span> PublishingExtension extension)</span> </span>&#123;</span><br><span class="line">        </span><br><span class="line">        <span class="comment">// 获取publications中的列表</span></span><br><span class="line">        <span class="keyword">final</span> NamedDomainObjectSet&lt;MavenPublicationInternal&gt; mavenPublications = extension.getPublications().withType(MavenPublicationInternal.class);</span><br><span class="line">        <span class="keyword">final</span> TaskContainer tasks = project.getTasks();</span><br><span class="line">        <span class="keyword">final</span> DirectoryProperty buildDirectory = project.getLayout().getBuildDirectory();</span><br><span class="line">        </span><br><span class="line">        <span class="comment">// 通过name 获取 publish 的TaskProvider，这个task在PublishingPlugin进行了注册</span></span><br><span class="line">        <span class="keyword">final</span> TaskProvider&lt;Task&gt; publishLifecycleTask = tasks.named(PublishingPlugin.PUBLISH_LIFECYCLE_TASK_NAME);</span><br><span class="line">        </span><br><span class="line">        <span class="comment">// 获取 publishToMavenLocal 上面进行过注册</span></span><br><span class="line">        <span class="keyword">final</span> TaskProvider&lt;Task&gt; publishLocalLifecycleTask = tasks.named(PUBLISH_LOCAL_LIFECYCLE_TASK_NAME);</span><br><span class="line">        </span><br><span class="line">        <span class="comment">// 获取 repositories中的列表</span></span><br><span class="line">        <span class="keyword">final</span> NamedDomainObjectList&lt;MavenArtifactRepository&gt; repositories = extension.getRepositories().withType(MavenArtifactRepository.class);</span><br><span class="line">        </span><br><span class="line">        <span class="comment">// 注册 publishAllPublicationsToMavenLocalRepository和 publishAllPublicationsToRemoteRepository</span></span><br><span class="line">        repositories.all(repository -&gt; tasks.register(publishAllToSingleRepoTaskName(repository), publish -&gt; &#123;</span><br><span class="line">            publish.setDescription(<span class="string">&quot;Publishes all Maven publications produced by this project to the &quot;</span> + repository.getName() + <span class="string">&quot; repository.&quot;</span>);</span><br><span class="line">            publish.setGroup(PublishingPlugin.PUBLISH_TASK_GROUP);</span><br><span class="line">        &#125;));</span><br><span class="line">        <span class="comment">//遍历MavenPublication 创建task</span></span><br><span class="line">        mavenPublications.all(publication -&gt; &#123;</span><br><span class="line">            </span><br><span class="line">            <span class="comment">// generateMetadataFileForMavenPublication</span></span><br><span class="line">            createGenerateMetadataTask(tasks, publication, mavenPublications, buildDirectory);</span><br><span class="line">            </span><br><span class="line">            <span class="comment">// generatePomFileForMavenPublication</span></span><br><span class="line">            createGeneratePomTask(tasks, publication, buildDirectory, project);</span><br><span class="line">            </span><br><span class="line">            <span class="comment">// publishMavenPublicationToMavenLocal</span></span><br><span class="line">            createLocalInstallTask(tasks, publishLocalLifecycleTask, publication);</span><br><span class="line">            </span><br><span class="line">            <span class="comment">// 我们自定义的上传maven task</span></span><br><span class="line">            createPublishTasksForEachMavenRepo(tasks, publishLifecycleTask, publication, repositories);</span><br><span class="line">        &#125;);</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    <span class="function"><span class="keyword">private</span> String <span class="title">publishAllToSingleRepoTaskName</span><span class="params">(MavenArtifactRepository repository)</span> </span>&#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="string">&quot;publishAllPublicationsTo&quot;</span> + capitalize(repository.getName()) + <span class="string">&quot;Repository&quot;</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>上面的代码主要是解析 publishing （PublishingExtension），并且根据我们设置的publications和repositories 构建task，构建的task类型，我们在上一部分中已经列出。</p>
+<p>开头发现在apply方法中调用了PublishingPlugin的apply方法，我们继续查看PublishingPlugin</p>
+<p><strong>PublishingPlugin</strong></p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">PublishingPlugin</span> <span class="keyword">implements</span> <span class="title">Plugin</span>&lt;<span class="title">Project</span>&gt; </span>&#123;</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">apply</span><span class="params">(<span class="keyword">final</span> Project project)</span> </span>&#123;</span><br><span class="line">        RepositoryHandler repositories = publicationServices.createRepositoryHandler();</span><br><span class="line">        PublicationContainer publications = instantiator.newInstance(DefaultPublicationContainer.class, instantiator, collectionCallbackActionDecorator);</span><br><span class="line">        </span><br><span class="line">        PublishingExtension extension = project.getExtensions().create(PublishingExtension.class, PublishingExtension.NAME, DefaultPublishingExtension.class, repositories, publications);</span><br><span class="line">        </span><br><span class="line">        <span class="comment">//注册publish task</span></span><br><span class="line">        project.getTasks().register(PUBLISH_LIFECYCLE_TASK_NAME, task -&gt; &#123;</span><br><span class="line">            task.setDescription(<span class="string">&quot;Publishes all publications produced by this project.&quot;</span>);</span><br><span class="line">            task.setGroup(PUBLISH_TASK_GROUP);</span><br><span class="line">        &#125;);</span><br><span class="line">        extension.getPublications().all(publication -&gt; &#123;</span><br><span class="line">            PublicationInternal&lt;?&gt; internalPublication = Cast.uncheckedNonnullCast(publication);</span><br><span class="line">            ProjectInternal projectInternal = (ProjectInternal) project;</span><br><span class="line">            projectPublicationRegistry.registerPublication(projectInternal, internalPublication);</span><br><span class="line">        &#125;);</span><br><span class="line">        bridgeToSoftwareModelIfNeeded((ProjectInternal) project);</span><br><span class="line">        validatePublishingModelWhenComplete(project, extension);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>初始化完成后，每个task都可以独立执行，这里分析publishMavenPublicationToMavenLocalRepository和publishMavenPublicationToRemoteRepository；构建task过程如下</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title">createPublishTasksForEachMavenRepo</span><span class="params">(<span class="keyword">final</span> TaskContainer tasks, <span class="keyword">final</span> TaskProvider&lt;Task&gt; publishLifecycleTask, <span class="keyword">final</span> MavenPublicationInternal publication, <span class="keyword">final</span> NamedDomainObjectList&lt;MavenArtifactRepository&gt; repositories)</span> </span>&#123;</span><br><span class="line">        <span class="keyword">final</span> String publicationName = publication.getName();</span><br><span class="line">        repositories.all(repository -&gt; &#123;</span><br><span class="line">            <span class="keyword">final</span> String repositoryName = repository.getName();</span><br><span class="line">            <span class="keyword">final</span> String publishTaskName = <span class="string">&quot;publish&quot;</span> + capitalize(publicationName) + <span class="string">&quot;PublicationTo&quot;</span> + capitalize(repositoryName) + <span class="string">&quot;Repository&quot;</span>;</span><br><span class="line">            tasks.register(publishTaskName, PublishToMavenRepository.class, publishTask -&gt; &#123;</span><br><span class="line">                publishTask.setPublication(publication);</span><br><span class="line">                publishTask.setRepository(repository);</span><br><span class="line">                publishTask.setGroup(PublishingPlugin.PUBLISH_TASK_GROUP);</span><br><span class="line">                publishTask.setDescription(<span class="string">&quot;Publishes Maven publication &#x27;&quot;</span> + publicationName + <span class="string">&quot;&#x27; to Maven repository &#x27;&quot;</span> + repositoryName + <span class="string">&quot;&#x27;.&quot;</span>);</span><br><span class="line">            &#125;);</span><br><span class="line">            publishLifecycleTask.configure(task -&gt; task.dependsOn(publishTaskName));</span><br><span class="line">            tasks.named(publishAllToSingleRepoTaskName(repository), publish -&gt; publish.dependsOn(publishTaskName));</span><br><span class="line">        &#125;);</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+
+<p>这里的代码是帮助构建task，并且让publish和publishAllxxxxxx 依赖这个task</p>
+<h2 id="Task执行"><a href="#Task执行" class="headerlink" title="Task执行"></a>Task执行</h2><p><strong>PublishToMavenRepository (publishMavenPublicationToMavenLocalRepository)</strong></p>
+<ul>
+<li>命令</li>
+</ul>
+<figure class="highlight groovy"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">./<span class="attr">gradlew :</span><span class="attr">amap_miniapp_compiler:</span>publishMavenPublicationToMavenLocalRepository</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>publication</li>
+</ul>
+<img src="/2021/06/24/MavenPublish%E6%8F%92%E4%BB%B6%E8%A7%A3%E6%9E%90/img.png" class="">
+
+<ul>
+<li>流程图</li>
+</ul>
+<img src="/2021/06/24/MavenPublish%E6%8F%92%E4%BB%B6%E8%A7%A3%E6%9E%90/img_1.png" class="">
+
+<ul>
+<li>核心上传代码</li>
+</ul>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">abstract</span> <span class="class"><span class="keyword">class</span> <span class="title">AbstractMavenPublisher</span> <span class="keyword">implements</span> <span class="title">MavenPublisher</span> </span>&#123;</span><br><span class="line">    </span><br><span class="line">    <span class="function"><span class="keyword">protected</span> <span class="keyword">void</span> <span class="title">publish</span><span class="params">(MavenNormalizedPublication publication, ExternalResourceRepository repository, URI rootUri, <span class="keyword">boolean</span> localRepo)</span> </span>&#123;</span><br><span class="line">        String groupId = publication.getGroupId();</span><br><span class="line">        String artifactId = publication.getArtifactId();</span><br><span class="line">        String version = publication.getVersion();</span><br><span class="line"></span><br><span class="line">        ModuleArtifactPublisher artifactPublisher = <span class="keyword">new</span> ModuleArtifactPublisher(repository, localRepo, rootUri, groupId, artifactId, version);</span><br><span class="line">        <span class="comment">// snapshot</span></span><br><span class="line">        <span class="keyword">if</span> (isSnapshot(version)) &#123;</span><br><span class="line">            ...</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="comment">// 上传mainArtifact</span></span><br><span class="line">        <span class="keyword">if</span> (publication.getMainArtifact() != <span class="keyword">null</span>) &#123;</span><br><span class="line">            artifactPublisher.publish(<span class="keyword">null</span>, publication.getMainArtifact().getExtension(), publication.getMainArtifact().getFile());</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="comment">// 上传pom</span></span><br><span class="line">        artifactPublisher.publish(<span class="keyword">null</span>, <span class="string">&quot;pom&quot;</span>, publication.getPomArtifact().getFile());</span><br><span class="line">        <span class="keyword">for</span> (MavenArtifact artifact : publication.getAdditionalArtifacts()) &#123;</span><br><span class="line">            <span class="comment">//其他额外的 artifact</span></span><br><span class="line">            artifactPublisher.publish(artifact.getClassifier(), artifact.getExtension(), artifact.getFile());</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        ExternalResourceName externalResource = artifactPublisher.getMetadataLocation();</span><br><span class="line">        Metadata metadata = createMetadata(groupId, artifactId, version, repository, externalResource);</span><br><span class="line">        <span class="comment">// 上传 metadata</span></span><br><span class="line">        artifactPublisher.publish(externalResource, writeMetadataToTmpFile(metadata, <span class="string">&quot;module-maven-metadata.xml&quot;</span>));</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2021/06/24/pom%E7%94%9F%E6%88%90%E6%96%B9%E6%A1%88/" rel="prev" title="pom生成方案">
+      <i class="fa fa-chevron-left"></i> pom生成方案
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2021/06/24/%E4%B8%8B%E8%BD%BDaar/" rel="next" title="下载aar">
+      下载aar <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%BD%BF%E7%94%A8"><span class="nav-number">1.</span> <span class="nav-text">使用</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%8E%9F%E7%90%86"><span class="nav-number">2.</span> <span class="nav-text">原理</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%88%9D%E5%A7%8B%E5%8C%96"><span class="nav-number">2.1.</span> <span class="nav-text">初始化</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Task%E6%89%A7%E8%A1%8C"><span class="nav-number">2.2.</span> <span class="nav-text">Task执行</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">JuneLeo</p>
+  <div class="site-description" itemprop="description">Alibaba</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">21</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+        <span class="site-state-item-count">7</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/JuneLeo" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;JuneLeo" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="/june.leo.me@gmail.com" title="E-Mail → june.leo.me@gmail.com"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">JuneLeo</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/pjax/pjax.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+  <script>
+var pjax = new Pjax({
+  selectors: [
+    'head title',
+    '#page-configurations',
+    '.content-wrap',
+    '.post-toc-wrap',
+    '.languages',
+    '#pjax'
+  ],
+  switches: {
+    '.post-toc-wrap': Pjax.switches.innerHTML
+  },
+  analytics: false,
+  cacheBust: false,
+  scrollTo : !CONFIG.bookmark.enable
+});
+
+window.addEventListener('pjax:success', () => {
+  document.querySelectorAll('script[data-pjax], script#page-configurations, #pjax script').forEach(element => {
+    var code = element.text || element.textContent || element.innerHTML || '';
+    var parent = element.parentNode;
+    parent.removeChild(element);
+    var script = document.createElement('script');
+    if (element.id) {
+      script.id = element.id;
+    }
+    if (element.className) {
+      script.className = element.className;
+    }
+    if (element.type) {
+      script.type = element.type;
+    }
+    if (element.src) {
+      script.src = element.src;
+      // Force synchronous loading of peripheral JS.
+      script.async = false;
+    }
+    if (element.dataset.pjax !== undefined) {
+      script.dataset.pjax = '';
+    }
+    if (code !== '') {
+      script.appendChild(document.createTextNode(code));
+    }
+    parent.appendChild(script);
+  });
+  NexT.boot.refresh();
+  // Define Motion Sequence & Bootstrap Motion.
+  if (CONFIG.motion.enable) {
+    NexT.motion.integrator
+      .init()
+      .add(NexT.motion.middleWares.subMenu)
+      .add(NexT.motion.middleWares.postList)
+      .bootstrap();
+  }
+  NexT.utils.updateSidebarPosition();
+});
+</script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <div id="pjax">
+  
+
+  
+
+    </div>
+</body>
+</html>
