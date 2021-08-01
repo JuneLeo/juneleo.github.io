@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"www.juneleo.cn","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="学习本文的收益： 1.掌握如何使用V8引擎 2.对于小程序V8 Worker的理解更深刻 3.了解JsApi的注入和调用原理">
+<meta property="og:type" content="article">
+<meta property="og:title" content="C++中嵌入V8引擎">
+<meta property="og:url" content="http://www.juneleo.cn/2021/08/01/C-%E4%B8%AD%E5%B5%8C%E5%85%A5V8%E5%BC%95%E6%93%8E/index.html">
+<meta property="og:site_name" content="JuneLeo&#39;s Blog">
+<meta property="og:description" content="学习本文的收益： 1.掌握如何使用V8引擎 2.对于小程序V8 Worker的理解更深刻 3.了解JsApi的注入和调用原理">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://www.juneleo.cn/2021/08/01/C-%E4%B8%AD%E5%B5%8C%E5%85%A5V8%E5%BC%95%E6%93%8E/img_1.png">
+<meta property="og:image" content="http://www.juneleo.cn/2021/08/01/C-%E4%B8%AD%E5%B5%8C%E5%85%A5V8%E5%BC%95%E6%93%8E/img_2.png">
+<meta property="og:image" content="http://www.juneleo.cn/2021/08/01/C-%E4%B8%AD%E5%B5%8C%E5%85%A5V8%E5%BC%95%E6%93%8E/img_3.png">
+<meta property="og:image" content="http://www.juneleo.cn/2021/08/01/C-%E4%B8%AD%E5%B5%8C%E5%85%A5V8%E5%BC%95%E6%93%8E/img_4.png">
+<meta property="og:image" content="http://www.juneleo.cn/2021/08/01/C-%E4%B8%AD%E5%B5%8C%E5%85%A5V8%E5%BC%95%E6%93%8E/img_5.png">
+<meta property="og:image" content="http://www.juneleo.cn/2021/08/01/C-%E4%B8%AD%E5%B5%8C%E5%85%A5V8%E5%BC%95%E6%93%8E/img_6.png">
+<meta property="og:image" content="http://www.juneleo.cn/2021/08/01/C-%E4%B8%AD%E5%B5%8C%E5%85%A5V8%E5%BC%95%E6%93%8E/img_7.png">
+<meta property="og:image" content="http://www.juneleo.cn/2021/08/01/C-%E4%B8%AD%E5%B5%8C%E5%85%A5V8%E5%BC%95%E6%93%8E/img_8.png">
+<meta property="og:image" content="http://www.juneleo.cn/2021/08/01/C-%E4%B8%AD%E5%B5%8C%E5%85%A5V8%E5%BC%95%E6%93%8E/img_9.png">
+<meta property="og:image" content="http://www.juneleo.cn/2021/08/01/C-%E4%B8%AD%E5%B5%8C%E5%85%A5V8%E5%BC%95%E6%93%8E/img_10.png">
+<meta property="og:image" content="http://www.juneleo.cn/2021/08/01/C-%E4%B8%AD%E5%B5%8C%E5%85%A5V8%E5%BC%95%E6%93%8E/img_11.png">
+<meta property="og:image" content="http://www.juneleo.cn/2021/08/01/C-%E4%B8%AD%E5%B5%8C%E5%85%A5V8%E5%BC%95%E6%93%8E/img_12.png">
+<meta property="article:published_time" content="2021-08-01T12:27:17.000Z">
+<meta property="article:modified_time" content="2021-08-01T12:51:35.287Z">
+<meta property="article:author" content="JuneLeo">
+<meta property="article:tag" content="JavaScript">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://www.juneleo.cn/2021/08/01/C-%E4%B8%AD%E5%B5%8C%E5%85%A5V8%E5%BC%95%E6%93%8E/img_1.png">
+
+<link rel="canonical" href="http://www.juneleo.cn/2021/08/01/C-%E4%B8%AD%E5%B5%8C%E5%85%A5V8%E5%BC%95%E6%93%8E/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>C++中嵌入V8引擎 | JuneLeo's Blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">JuneLeo's Blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://www.juneleo.cn/2021/08/01/C-%E4%B8%AD%E5%B5%8C%E5%85%A5V8%E5%BC%95%E6%93%8E/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="JuneLeo">
+      <meta itemprop="description" content="Alibaba">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="JuneLeo's Blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          C++中嵌入V8引擎
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2021-08-01 20:27:17 / 修改时间：20:51:35" itemprop="dateCreated datePublished" datetime="2021-08-01T20:27:17+08:00">2021-08-01</time>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>学习本文的收益：</p>
+<p>1.掌握如何使用V8引擎</p>
+<p>2.对于小程序V8 Worker的理解更深刻</p>
+<p>3.了解JsApi的注入和调用原理</p>
+<span id="more"></span>
+
+<img src="/2021/08/01/C-%E4%B8%AD%E5%B5%8C%E5%85%A5V8%E5%BC%95%E6%93%8E/img_1.png" class="">
+
+<p>模仿my.call (jsapi)</p>
+<img src="/2021/08/01/C-%E4%B8%AD%E5%B5%8C%E5%85%A5V8%E5%BC%95%E6%93%8E/img_2.png" class="">
+
+
+<h1 id="环境"><a href="#环境" class="headerlink" title="环境"></a>环境</h1><p><strong>1.xcode</strong></p>
+<p><strong>2.git</strong></p>
+<p><strong>3.depot_tools</strong></p>
+<ul>
+<li><strong>下载</strong><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">git clone https://chromium.googlesource.com/chromium/tools/depot_tools.git</span><br></pre></td></tr></table></figure></li>
+<li><strong>添加到PATH</strong><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">export PATH=/path/to/depot_tools:$PATH</span><br></pre></td></tr></table></figure></li>
+</ul>
+<h1 id="编译"><a href="#编译" class="headerlink" title="编译"></a>编译</h1><p><strong>1.fetch</strong></p>
+<p>使用depot_tools提供的fetch，本地会生成.gclient，有点类似repo，mkit工具</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">mkdir ~/v8</span><br><span class="line">cd ~/v8</span><br><span class="line">fetch v8</span><br></pre></td></tr></table></figure>
+
+<p>fetch v8 会自动触发gclient sync，如果我们要切换分支，我们应该终止gclient sync，然后切换分支，最后手动gclient sync</p>
+<p><strong>.gclient文件，如果是fetch [android | ios] 这里将会有一些差异</strong></p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">solutions = [</span><br><span class="line">  &#123;</span><br><span class="line">    <span class="string">&quot;name&quot;</span>: <span class="string">&quot;v8&quot;</span>,</span><br><span class="line">    <span class="string">&quot;url&quot;</span>: <span class="string">&quot;https://chromium.googlesource.com/v8/v8.git&quot;</span>,</span><br><span class="line">    <span class="string">&quot;deps_file&quot;</span>: <span class="string">&quot;DEPS&quot;</span>,</span><br><span class="line">    <span class="string">&quot;managed&quot;</span>: False,</span><br><span class="line">    <span class="string">&quot;custom_deps&quot;</span>: &#123;&#125;,</span><br><span class="line">  &#125;,</span><br><span class="line">]</span><br></pre></td></tr></table></figure>
+
+<p><strong>.gclient_entries文件 ，多个git仓库本地映射</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line">entries = &#123;</span><br><span class="line">  &#x27;v8&#x27;: &#x27;https://chromium.googlesource.com/v8/v8.git&#x27;,</span><br><span class="line">  &#x27;v8/base/trace_event/common&#x27;: &#x27;https://chromium.googlesource.com/chromium/src/base/trace_event/common.git@cfe8887fa6ac3170e23a68949930e28d4705a16f&#x27;,</span><br><span class="line">  &#x27;v8/build&#x27;: &#x27;https://chromium.googlesource.com/chromium/src/build.git@1e5d7d692f816af8136c738b79fe9e8dde8057f6&#x27;,</span><br><span class="line">  &#x27;v8/buildtools&#x27;: &#x27;https://chromium.googlesource.com/chromium/src/buildtools.git@67b293ca1316d06f7f00160ce35c92b8849a9dc9&#x27;,</span><br><span class="line">  &#x27;v8/buildtools/clang_format/script&#x27;: &#x27;https://chromium.googlesource.com/chromium/llvm-project/cfe/tools/clang-format.git@96636aa0e9f047f17447f2d45a094d0b59ed7917&#x27;,</span><br><span class="line">  &#x27;v8/buildtools/mac:gn/gn/mac-amd64&#x27;: &#x27;https://chrome-infra-packages.appspot.com/gn/gn/mac-amd64@git_revision:972ed755f8e6d31cae9ba15fcd08136ae1a7886f&#x27;,</span><br><span class="line">  &#x27;v8/buildtools/third_party/libc++/trunk&#x27;: &#x27;https://chromium.googlesource.com/chromium/llvm-project/libcxx.git@5938e0582bac570a41edb3d6a2217c299adc1bc6&#x27;,</span><br><span class="line">  &#x27;v8/buildtools/third_party/libc++abi/trunk&#x27;: &#x27;https://chromium.googlesource.com/chromium/llvm-project/libcxxabi.git@0d529660e32d77d9111912d73f2c74fc5fa2a858&#x27;,</span><br><span class="line">  &#x27;v8/buildtools/third_party/libunwind/trunk&#x27;: &#x27;https://chromium.googlesource.com/external/llvm.org/libunwind.git@69d9b84cca8354117b9fe9705a4430d789ee599b&#x27;,</span><br><span class="line">  &#x27;v8/test/benchmarks/data&#x27;: &#x27;https://chromium.googlesource.com/v8/deps/third_party/benchmarks.git@05d7188267b4560491ff9155c5ee13e207ecd65f&#x27;,</span><br><span class="line">  &#x27;v8/test/mozilla/data&#x27;: &#x27;https://chromium.googlesource.com/v8/deps/third_party/mozilla-tests.git@f6c578a10ea707b1a8ab0b88943fe5115ce2b9be&#x27;,</span><br><span class="line">  &#x27;v8/test/test262/data&#x27;: &#x27;https://chromium.googlesource.com/external/github.com/tc39/test262.git@26a2268436f28f64c4539d9aab9ebd0f0b7c99c5&#x27;,</span><br><span class="line">  &#x27;v8/test/test262/harness&#x27;: &#x27;https://chromium.googlesource.com/external/github.com/test262-utils/test262-harness-py.git@4555345a943d0c99a9461182705543fb171dda4b&#x27;,</span><br><span class="line">  &#x27;v8/test/wasm-js/data&#x27;: &#x27;https://chromium.googlesource.com/external/github.com/WebAssembly/spec.git@1a411f713d9850ce7da24719aba5bb80c535f562&#x27;,</span><br><span class="line">  &#x27;v8/third_party/depot_tools&#x27;: &#x27;https://chromium.googlesource.com/chromium/tools/depot_tools.git@ee7b9dda90e409fb92031d511151debe5db7db9f&#x27;,</span><br><span class="line">  &#x27;v8/third_party/googletest/src&#x27;: &#x27;https://chromium.googlesource.com/external/github.com/google/googletest.git@6077f444da944d96d311d358d761164261f1cdd0&#x27;,</span><br><span class="line">  &#x27;v8/third_party/icu&#x27;: &#x27;https://chromium.googlesource.com/chromium/deps/icu.git@fd97d4326fac6da84452b2d5fe75ff0949368dab&#x27;,</span><br><span class="line">  &#x27;v8/third_party/instrumented_libraries&#x27;: &#x27;https://chromium.googlesource.com/chromium/src/third_party/instrumented_libraries.git@b1c3ca20848c117eb935b02c25d441f03e6fbc5e&#x27;,</span><br><span class="line">  &#x27;v8/third_party/jinja2&#x27;: &#x27;https://chromium.googlesource.com/chromium/src/third_party/jinja2.git@b41863e42637544c2941b574c7877d3e1f663e25&#x27;,</span><br><span class="line">  &#x27;v8/third_party/markupsafe&#x27;: &#x27;https://chromium.googlesource.com/chromium/src/third_party/markupsafe.git@8f45f5cfa0009d2a70589bcda0349b8cb2b72783&#x27;,</span><br><span class="line">  &#x27;v8/third_party/perfetto&#x27;: &#x27;https://android.googlesource.com/platform/external/perfetto.git@0e8281399fd854de13461f2c1c9f2fb0b8e9c3ae&#x27;,</span><br><span class="line">  &#x27;v8/third_party/protobuf&#x27;: &#x27;https://chromium.googlesource.com/external/github.com/google/protobuf@b68a347f56137b4b1a746e8c7438495a6ac1bd91&#x27;,</span><br><span class="line">  &#x27;v8/tools/clang&#x27;: &#x27;https://chromium.googlesource.com/chromium/src/tools/clang.git@f485a21a9cb05494161d97d545c3b29447610ffb&#x27;,</span><br><span class="line">  &#x27;v8/tools/clang/dsymutil:chromium/llvm-build-tools/dsymutil&#x27;: &#x27;https://chrome-infra-packages.appspot.com/chromium/llvm-build-tools/dsymutil@OWlhXkmj18li3yhJk59Kmjbc5KdgLh56TwCd1qBdzlIC&#x27;,</span><br><span class="line">  &#x27;v8/tools/luci-go:infra/tools/luci/isolate/$&#123;platform&#125;&#x27;: &#x27;https://chrome-infra-packages.appspot.com/infra/tools/luci/isolate/$&#123;platform&#125;@git_revision:7d11fd9e66407c49cb6c8546a2ae45ea993a240c&#x27;,</span><br><span class="line">  &#x27;v8/tools/luci-go:infra/tools/luci/isolated/$&#123;platform&#125;&#x27;: &#x27;https://chrome-infra-packages.appspot.com/infra/tools/luci/isolated/$&#123;platform&#125;@git_revision:7d11fd9e66407c49cb6c8546a2ae45ea993a240c&#x27;,</span><br><span class="line">  &#x27;v8/tools/luci-go:infra/tools/luci/swarming/$&#123;platform&#125;&#x27;: &#x27;https://chrome-infra-packages.appspot.com/infra/tools/luci/swarming/$&#123;platform&#125;@git_revision:7d11fd9e66407c49cb6c8546a2ae45ea993a240c&#x27;,</span><br><span class="line">  &#x27;v8/tools/swarming_client&#x27;: &#x27;https://chromium.googlesource.com/infra/luci/client-py.git@96f125709acfd0b48fc1e5dae7d6ea42291726ac&#x27;,</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><strong>2.下载</strong></p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">gclient sync</span><br></pre></td></tr></table></figure>
+<p><strong>3.编译</strong></p>
+<ul>
+<li><p>3.1 使用gm构建编译 （简单）</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">tools/dev/gm.py x64.release    //如果编辑后要立即运行测试使用 x64.release.check</span><br></pre></td></tr></table></figure></li>
+<li><p>3.2 使用 gn 手动编译</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">gn gen out.gn/x64.release</span><br><span class="line"></span><br><span class="line">ninja -C out.gn/x64.release</span><br></pre></td></tr></table></figure></li>
+<li><p>3.3使用v8gen 手动编译</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">tools/dev/v8gen.py x64.release</span><br><span class="line"></span><br><span class="line">ninja -C out.gn/x64.release</span><br><span class="line"></span><br><span class="line">ninja -C out/x64.release d8 //构建特定目标</span><br></pre></td></tr></table></figure></li>
+</ul>
+<h1 id="编译嵌入c-的v8"><a href="#编译嵌入c-的v8" class="headerlink" title="编译嵌入c++的v8"></a>编译嵌入c++的v8</h1><p><strong>完整流程</strong></p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#</span><span class="bash">下载</span></span><br><span class="line"></span><br><span class="line">mkdir ~/v8</span><br><span class="line"></span><br><span class="line">cd ~/v8</span><br><span class="line"></span><br><span class="line">fetch v8 //这里我们终止 ctrl + c</span><br><span class="line"></span><br><span class="line">cd v8 </span><br><span class="line"></span><br><span class="line">git checkout refs/tags/7.1.11 -b sample -t</span><br><span class="line"></span><br><span class="line">cd ..</span><br><span class="line"></span><br><span class="line">gclient sync</span><br><span class="line"><span class="meta"></span></span><br><span class="line"><span class="meta">#</span><span class="bash">编译</span></span><br><span class="line"></span><br><span class="line">cd v8</span><br><span class="line"></span><br><span class="line">tools/dev/v8gen x64.release.sample</span><br><span class="line"></span><br><span class="line">ninja -C out.gn/x64.release.sample v8_monolith</span><br></pre></td></tr></table></figure>
+
+<p>这里我们选择了第三种编译方式v8gen，但是略有不同的是我们直接将所有的动态库连接起来，直接生成了v8_monolith.a</p>
+<p>接下来我们可以进行简单的测试，使用官方提供的方式</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">g++ -I. -Iinclude samples/hello-world.cc -o hello_world -lv8_monolith -Lout.gn/x64.release.sample/obj/ -pthread -std=c++14 -DV8_COMPRESS_POINTERS</span><br><span class="line"></span><br><span class="line">./hello_world</span><br></pre></td></tr></table></figure>
+
+<p>hello_world.cpp</p>
+<figure class="highlight coffeescript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">#include &lt;stdio.h&gt;</span></span><br><span class="line"><span class="comment">#include &lt;stdlib.h&gt;</span></span><br><span class="line"><span class="comment">#include &lt;string.h&gt;</span></span><br><span class="line"><span class="comment">#include &quot;include/libplatform/libplatform.h&quot;</span></span><br><span class="line"><span class="comment">#include &quot;include/v8.h&quot;</span></span><br><span class="line"></span><br><span class="line">int main(int argc, char* argv[]) &#123;</span><br><span class="line">  <span class="regexp">//</span> 初始化v8</span><br><span class="line">  v8::V8::InitializeICUDefaultLocation(argv[<span class="number">0</span>]);</span><br><span class="line">  v8::V8::InitializeExternalStartupData(argv[<span class="number">0</span>]);</span><br><span class="line">  std::unique_ptr&lt;v8::Platform&gt; platform = v8::platform::NewDefaultPlatform();</span><br><span class="line">  v8::V8::InitializePlatform(platform.get());</span><br><span class="line">  v8::V8::Initialize();</span><br><span class="line">  <span class="regexp">//</span> 创建一个isolate</span><br><span class="line">  v8::Isolate::CreateParams create_params;</span><br><span class="line">  create_params.array_buffer_allocator = v8::ArrayBuffer::Allocator::NewDefaultAllocator();</span><br><span class="line">  v8::Isolate* isolate = v8::Isolate::New(create_params);</span><br><span class="line">  <span class="regexp">//</span>构建好isolate开始编程</span><br><span class="line">  &#123;</span><br><span class="line">    v8::Isolate::Scope isolate_scope(isolate);</span><br><span class="line">    <span class="regexp">//</span> 构建一个handle_scope管理即将分配的各种变量</span><br><span class="line">    v8::HandleScope handle_scope(isolate);</span><br><span class="line">    <span class="regexp">//</span> 构建一个上下文context</span><br><span class="line">    v8::Local&lt;v8::Context&gt; context = v8::Context::New(isolate);</span><br><span class="line">    &#123;</span><br><span class="line">    	<span class="regexp">//</span> 将context放进scope中v8会进行管理</span><br><span class="line">    	v8::Context::Scope context_scope(context);  </span><br><span class="line">    	<span class="regexp">//</span> 构建一段string类型的handle，这一段内容就是javascript了</span><br><span class="line">    	v8::Local&lt;v8::<span class="built_in">String</span>&gt; source = v8::String::NewFromUtf8(isolate, <span class="string">&quot;&#x27;Hello&#x27; + &#x27;, World!&#x27;&quot;</span>, v8::NewStringType::kNormal).ToLocalChecked();</span><br><span class="line">    	<span class="regexp">//</span> 编译代码</span><br><span class="line">    	v8::Local&lt;v8::Script&gt; script = v8::Script::Compile(context, source).ToLocalChecked();</span><br><span class="line">    	<span class="regexp">//</span> 跑代码</span><br><span class="line">    	v8::Local&lt;v8::Value&gt; result = script-&gt;Run(context).ToLocalChecked();</span><br><span class="line">    	<span class="regexp">//</span>转换成utf8的变量</span><br><span class="line">    	v8::String::Utf8Value utf8(isolate, result);</span><br><span class="line">   	 	//c语言经典打印函数</span><br><span class="line">    	printf(<span class="string">&quot;%s\n&quot;</span>, *utf8);</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="regexp">//</span> 关闭v8并且清理内存</span><br><span class="line">  isolate-&gt;Dispose();</span><br><span class="line">  v8::V8::Dispose();</span><br><span class="line">  v8::V8::ShutdownPlatform();</span><br><span class="line">  <span class="keyword">delete</span> create_params.array_buffer_allocator;</span><br><span class="line">  <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+<p><strong>v8引擎使用</strong></p>
+<ul>
+<li>初始化V8</li>
+<li>创建一个新的隔离区(isolate)，并将这个隔离区置为当前使用</li>
+<li>创建一个栈分配的句柄范围 (handle_scope)</li>
+<li>创建一个上下文 (Context)</li>
+<li>进入上下文编译和运行脚本 (Compile 和 Run)</li>
+<li>销毁isolate以及使用过的buffer,并关掉进程 （Dispose）</li>
+</ul>
+<p><strong>嵌入C++</strong></p>
+<p>1.使用CLion新建一个C++项目，构建工具选择cmake</p>
+<img src="/2021/08/01/C-%E4%B8%AD%E5%B5%8C%E5%85%A5V8%E5%BC%95%E6%93%8E/img_3.png" class="">
+
+<p>2.复制v8/sample目录资源到C++项目</p>
+<img src="/2021/08/01/C-%E4%B8%AD%E5%B5%8C%E5%85%A5V8%E5%BC%95%E6%93%8E/img_4.png" class="">
+
+<img src="/2021/08/01/C-%E4%B8%AD%E5%B5%8C%E5%85%A5V8%E5%BC%95%E6%93%8E/img_5.png" class="">
+
+<p>3.CMakeLists.txt</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">cmake_minimum_required(VERSION 3.2)</span><br><span class="line">project(v8-demo)</span><br><span class="line"></span><br><span class="line">include_directories(/Users/juneleo/v8/v8/include)</span><br><span class="line">include_directories(/Users/juneleo/v8/v8)</span><br><span class="line"></span><br><span class="line">link_directories(</span><br><span class="line">        /Users/juneleo/v8/v8/out.gn/x64.release.sample/obj</span><br><span class="line">)</span><br><span class="line">link_libraries(</span><br><span class="line">        v8_monolith</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line">set(CMAKE_CXX_FLAGS &quot;$&#123;CMAKE_CXX_FLAGS&#125; -std=c++0x -pthread&quot;)</span><br><span class="line"></span><br><span class="line">add_executable(HelloWorld ./helloworld.cc)</span><br><span class="line">add_executable(Process ./process.cc)</span><br><span class="line">add_executable(Shell ./shell.cc)</span><br></pre></td></tr></table></figure>
+
+<p>4.运行</p>
+<img src="/2021/08/01/C-%E4%B8%AD%E5%B5%8C%E5%85%A5V8%E5%BC%95%E6%93%8E/img_6.png" class="">
+
+<p>4.1 运行HelloWorld</p>
+<img src="/2021/08/01/C-%E4%B8%AD%E5%B5%8C%E5%85%A5V8%E5%BC%95%E6%93%8E/img_7.png" class="">
+
+<p>4.2 运行Shell</p>
+<img src="/2021/08/01/C-%E4%B8%AD%E5%B5%8C%E5%85%A5V8%E5%BC%95%E6%93%8E/img_8.png" class="">
+
+
+<p>4.3 通过查看shell.cc，支持传入js文件</p>
+<img src="/2021/08/01/C-%E4%B8%AD%E5%B5%8C%E5%85%A5V8%E5%BC%95%E6%93%8E/img_9.png" class="">
+<img src="/2021/08/01/C-%E4%B8%AD%E5%B5%8C%E5%85%A5V8%E5%BC%95%E6%93%8E/img_10.png" class="">
+
+<p>4.4 ObjectTemplate</p>
+<figure class="highlight coffeescript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line">v8::Local&lt;v8::Context&gt; CreateShellContext(v8::Isolate* isolate) &#123;</span><br><span class="line">  <span class="regexp">//</span> Create a template <span class="keyword">for</span> the <span class="built_in">global</span> object.</span><br><span class="line">  v8::Local&lt;v8::ObjectTemplate&gt; <span class="built_in">global</span> = v8::ObjectTemplate::New(isolate);</span><br><span class="line">  <span class="regexp">//</span> Bind the <span class="built_in">global</span> <span class="string">&#x27;print&#x27;</span> function to the C++ Print callback.</span><br><span class="line">  <span class="built_in">global</span>-&gt;<span class="built_in">Set</span>(</span><br><span class="line">      v8::String::NewFromUtf8(isolate, <span class="string">&quot;print&quot;</span>, v8::NewStringType::kNormal)</span><br><span class="line">          .ToLocalChecked(),</span><br><span class="line">      v8::FunctionTemplate::New(isolate, Print));</span><br><span class="line">  <span class="regexp">//</span> Bind the <span class="built_in">global</span> <span class="string">&#x27;read&#x27;</span> function to the C++ Read callback.</span><br><span class="line">  <span class="built_in">global</span>-&gt;<span class="built_in">Set</span>(v8::String::NewFromUtf8(</span><br><span class="line">                  isolate, <span class="string">&quot;read&quot;</span>, v8::NewStringType::kNormal).ToLocalChecked(),</span><br><span class="line">              v8::FunctionTemplate::New(isolate, Read));</span><br><span class="line">  <span class="regexp">//</span> Bind the <span class="built_in">global</span> <span class="string">&#x27;load&#x27;</span> function to the C++ Load callback.</span><br><span class="line">  <span class="built_in">global</span>-&gt;<span class="built_in">Set</span>(v8::String::NewFromUtf8(</span><br><span class="line">                  isolate, <span class="string">&quot;load&quot;</span>, v8::NewStringType::kNormal).ToLocalChecked(),</span><br><span class="line">              v8::FunctionTemplate::New(isolate, Load));</span><br><span class="line">  <span class="regexp">//</span> Bind the <span class="string">&#x27;quit&#x27;</span> function</span><br><span class="line">  <span class="built_in">global</span>-&gt;<span class="built_in">Set</span>(v8::String::NewFromUtf8(</span><br><span class="line">                  isolate, <span class="string">&quot;quit&quot;</span>, v8::NewStringType::kNormal).ToLocalChecked(),</span><br><span class="line">              v8::FunctionTemplate::New(isolate, Quit));</span><br><span class="line">  <span class="regexp">//</span> Bind the <span class="string">&#x27;version&#x27;</span> function</span><br><span class="line">  <span class="built_in">global</span>-&gt;<span class="built_in">Set</span>(</span><br><span class="line">      v8::String::NewFromUtf8(isolate, <span class="string">&quot;version&quot;</span>, v8::NewStringType::kNormal)</span><br><span class="line">          .ToLocalChecked(),</span><br><span class="line">      v8::FunctionTemplate::New(isolate, Version));</span><br><span class="line"></span><br><span class="line">  <span class="keyword">return</span> v8::Context::New(isolate, NULL, <span class="built_in">global</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>运行</p>
+<img src="/2021/08/01/C-%E4%B8%AD%E5%B5%8C%E5%85%A5V8%E5%BC%95%E6%93%8E/img_11.png" class="">
+
+<p>4.5 模仿小程序my.call</p>
+<figure class="highlight coffeescript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line">v8::Local&lt;v8::Context&gt; CreateShellContext(v8::Isolate* isolate) &#123;</span><br><span class="line">  <span class="regexp">//</span> Create a template <span class="keyword">for</span> the <span class="built_in">global</span> object.</span><br><span class="line">  v8::Local&lt;v8::ObjectTemplate&gt; <span class="built_in">global</span> = v8::ObjectTemplate::New(isolate);</span><br><span class="line">  ...</span><br><span class="line">	<span class="regexp">//</span>构建全局my 对象模版	</span><br><span class="line">  v8::Local&lt;v8::ObjectTemplate&gt; my = v8::ObjectTemplate::New(isolate);</span><br><span class="line">    <span class="regexp">//</span>设置call 方法模版</span><br><span class="line">  my -&gt;<span class="built_in">Set</span>(</span><br><span class="line">          v8::String::NewFromUtf8(isolate, <span class="string">&quot;call&quot;</span>, v8::NewStringType::kNormal).ToLocalChecked(),</span><br><span class="line">          v8::FunctionTemplate::New(isolate, Call));</span><br><span class="line">	</span><br><span class="line">  <span class="built_in">global</span> -&gt; <span class="built_in">Set</span>(</span><br><span class="line">          v8::String::NewFromUtf8(isolate, <span class="string">&quot;my&quot;</span>, v8::NewStringType::kNormal).ToLocalChecked(),</span><br><span class="line">          my</span><br><span class="line">    );</span><br><span class="line"></span><br><span class="line">  <span class="keyword">return</span> v8::Context::New(isolate, NULL, <span class="built_in">global</span>);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="regexp">//</span> 模仿 call 方法</span><br><span class="line"><span class="keyword">void</span> Call(const v8::FunctionCallbackInfo&lt;v8::Value&gt;&amp; args) &#123;</span><br><span class="line">    printf(<span class="string">&quot;调用了my.call&quot;</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>运行 my.call 函数</p>
+<img src="/2021/08/01/C-%E4%B8%AD%E5%B5%8C%E5%85%A5V8%E5%BC%95%E6%93%8E/img_12.png" class="">
+
+
+<p>通过对象模版和方法模版，我们可以联想到小程序中的my.xxxx，这些jsapi可能都是通过方法模版进行注入的，java层/object-c层，通过调用c层对应的方法进行注入，这些注入的方法将被js所调用。</p>
+<h1 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h1><ul>
+<li>v8编译：<a target="_blank" rel="noopener" href="https://v8.dev/docs/embed">https://v8.dev/docs/embed</a></li>
+<li>v8 worker： <a target="_blank" rel="noopener" href="https://developer.aliyun.com/article/763312">https://developer.aliyun.com/article/763312</a></li>
+</ul>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/JavaScript/" rel="tag"># JavaScript</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2021/06/24/%E4%B8%8B%E8%BD%BDaar/" rel="prev" title="下载aar">
+      <i class="fa fa-chevron-left"></i> 下载aar
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E7%8E%AF%E5%A2%83"><span class="nav-number">1.</span> <span class="nav-text">环境</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E7%BC%96%E8%AF%91"><span class="nav-number">2.</span> <span class="nav-text">编译</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E7%BC%96%E8%AF%91%E5%B5%8C%E5%85%A5c-%E7%9A%84v8"><span class="nav-number">3.</span> <span class="nav-text">编译嵌入c++的v8</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%8F%82%E8%80%83"><span class="nav-number">4.</span> <span class="nav-text">参考</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">JuneLeo</p>
+  <div class="site-description" itemprop="description">Alibaba</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">22</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+        <span class="site-state-item-count">8</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/JuneLeo" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;JuneLeo" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="/june.leo.me@gmail.com" title="E-Mail → june.leo.me@gmail.com"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">JuneLeo</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/pjax/pjax.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+  <script>
+var pjax = new Pjax({
+  selectors: [
+    'head title',
+    '#page-configurations',
+    '.content-wrap',
+    '.post-toc-wrap',
+    '.languages',
+    '#pjax'
+  ],
+  switches: {
+    '.post-toc-wrap': Pjax.switches.innerHTML
+  },
+  analytics: false,
+  cacheBust: false,
+  scrollTo : !CONFIG.bookmark.enable
+});
+
+window.addEventListener('pjax:success', () => {
+  document.querySelectorAll('script[data-pjax], script#page-configurations, #pjax script').forEach(element => {
+    var code = element.text || element.textContent || element.innerHTML || '';
+    var parent = element.parentNode;
+    parent.removeChild(element);
+    var script = document.createElement('script');
+    if (element.id) {
+      script.id = element.id;
+    }
+    if (element.className) {
+      script.className = element.className;
+    }
+    if (element.type) {
+      script.type = element.type;
+    }
+    if (element.src) {
+      script.src = element.src;
+      // Force synchronous loading of peripheral JS.
+      script.async = false;
+    }
+    if (element.dataset.pjax !== undefined) {
+      script.dataset.pjax = '';
+    }
+    if (code !== '') {
+      script.appendChild(document.createTextNode(code));
+    }
+    parent.appendChild(script);
+  });
+  NexT.boot.refresh();
+  // Define Motion Sequence & Bootstrap Motion.
+  if (CONFIG.motion.enable) {
+    NexT.motion.integrator
+      .init()
+      .add(NexT.motion.middleWares.subMenu)
+      .add(NexT.motion.middleWares.postList)
+      .bootstrap();
+  }
+  NexT.utils.updateSidebarPosition();
+});
+</script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <div id="pjax">
+  
+
+  
+
+    </div>
+</body>
+</html>
